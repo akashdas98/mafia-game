@@ -15,7 +15,6 @@ public class LoadUnloadScene : MonoBehaviour
 
   private void OnTriggerEnter2D(Collider2D collision)
   {
-    Debug.Log($"{collision.gameObject}, {player}");
     if (collision.gameObject == player)
     {
       LoadScenes();
@@ -29,8 +28,6 @@ public class LoadUnloadScene : MonoBehaviour
     {
       string sceneName = scenesToLoad[i];
       bool isSceneLoaded = SceneManager.GetSceneByName(sceneName).isLoaded;
-
-      Debug.Log($"{sceneName}, {isSceneLoaded}");
 
       if (!isSceneLoaded)
       {
