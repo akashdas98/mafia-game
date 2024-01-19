@@ -271,7 +271,7 @@ public class CarController : Controller
       GameObject driver = null;
       foreach (Transform child in transform)
       {
-        if (child.CompareTag("Player"))
+        if (child.CompareTag("Character") || child.CompareTag("Player"))
         {
           driver = child.gameObject;
           break; // Exit the loop once the player is found
