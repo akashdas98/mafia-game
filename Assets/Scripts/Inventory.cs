@@ -8,11 +8,16 @@ public class Inventory : MonoBehaviour
     private GameObject owner;
     private List<Weapon> weapons = new List<Weapon>();
 
-    private Weapon equippedWeapon;
+    private Weapon? equippedWeapon;
 
     public void SetEquippedWeapon(Weapon weapon)
     {
         equippedWeapon = weapon;
+    }
+
+    public Weapon GetEquippedWeapon()
+    {
+        return equippedWeapon;
     }
 
     public void ResetEquippedWeapon()

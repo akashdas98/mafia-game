@@ -2,49 +2,53 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Shooting : MonoBehaviour
+public class Shooting : ControllerHelper<CharacterController>
 {
-  [SerializeField]
-  private CharacterController controller;
+  public Shooting(CharacterController controller, Inventory inventory) : base(controller, inventory) { }
 
-  [SerializeField]
-  private Gun gun;
-
+  private Gun? gun;
   private float gunDistance = 1f;
-  private Vector3 aiming, gunPosition;
 
-  public void SetGunPosition()
+  private void SetGun()
+  {
+    Weapon equippedWeapon = inventory.GetEquippedWeapon();
+    gun = equippedWeapon as Gun;
+  }
+
+  private void SetGunPosition()
   {
     Dictionary<string, float> inputs = controller.GetInputs();
     int horizontal = inputs["horizontalInput"] > 0 ? 1 : inputs["horizontalInput"] < 0 ? -1 : 0;
     int vertical = inputs["verticalInput"] > 0 ? 1 : inputs["verticalInput"] < 0 ? -1 : 0;
     Vector3 offset = new Vector3(horizontal, vertical, 0).normalized * gunDistance;
-    gunPosition = transform.position + offset;
+    gun.SetPosition(offset); // relative position because weapon is a child object of character / owner
   }
 
-  private void SetAiming()
+  private void SetAimDirection()
   {
     Dictionary<string, float> inputs = controller.GetInputs();
-    aiming = Utilities.Get8DirectionFromInput(
+    gun.SetAimDirection(Utilities.Get8DirectionFromInput(
       inputs["aimHorizontalInput"],
       inputs["aimVerticalInput"]
-    );
+    ));
   }
 
-  public bool IsAiming()
+  public Vector3 GetAimDirection()
   {
-    return aiming.x != 0 || aiming.y != 0;
-  }
-
-  public Vector3 GetAiming()
-  {
-    return aiming;
+    if (gun)
+    {
+      return gun.GetAimDirection();
+    }
+    else
+    {
+      return new Vector3(0, 0);
+    }
   }
 
   private void HandleGun()
   {
     bool isTriggerPulled = gun.IsTriggerPulled();
-    if (IsAiming())
+    if (gun.IsAiming())
     {
       bool hasActionInput = controller.HasActionInput();
 
@@ -73,8 +77,14 @@ public class Shooting : MonoBehaviour
     }
   }
 
-  void Update()
+  public override void Update()
   {
-    SetAiming();
+    SetGun();
+    if (gun)
+    {
+      SetGunPosition();
+      SetAimDirection();
+      HandleGun();
+    }
   }
 }

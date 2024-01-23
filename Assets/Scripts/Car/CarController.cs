@@ -16,7 +16,7 @@ public class CarController : Controller
       turnFactorMultiplier = 0.1f,
       speedFactorThreshold = 20,
       speedFactorMultiplier = 1;
-  public Animator animator;
+
   public Rigidbody2D rigidBody;
   public CinemachineVirtualCamera cinemachineCamera;
   private Vector3 direction = new Vector3(1, 0);

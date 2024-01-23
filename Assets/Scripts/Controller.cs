@@ -4,6 +4,10 @@ using UnityEngine;
 public abstract class Controller : MonoBehaviour
 {
   protected ControlManager controlManager;
+
+  [SerializeField]
+  protected Animator animator;
+
   public abstract void SetInputs(InputData input);
 
   public abstract void ResetInputs();

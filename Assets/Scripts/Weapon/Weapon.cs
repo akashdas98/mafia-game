@@ -6,6 +6,7 @@ public abstract class Weapon : MonoBehaviour
 {
     protected GameObject user;
     protected double baseDamage;
+    protected Vector3 position;
 
     public void Equip(GameObject obj)
     {
@@ -15,5 +16,10 @@ public abstract class Weapon : MonoBehaviour
     public void Unequip()
     {
         user = null;
+    }
+
+    public void SetPosition(Vector3 position)
+    {
+        this.position = position;
     }
 }

@@ -17,7 +17,6 @@ public class BuildingFadeOut : MonoBehaviour
     float bottomOfCollider = buildingCollider.bounds.min.y;
     float topOfCollider = buildingCollider.bounds.max.y;
     colliderFadePoint = bottomOfCollider;
-    Debug.Log(colliderFadePoint);
     fadeLength = (topOfCollider - colliderFadePoint) - 2.5f;
   }
 

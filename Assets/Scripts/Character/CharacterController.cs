@@ -5,21 +5,17 @@ using UnityEngine;
 public class CharacterController : Controller
 {
   [SerializeField]
-  private Animator animator;
-
-  [SerializeField]
   private Rigidbody2D rigidBody;
 
   [SerializeField]
   private Inventory inventory;
 
-  [SerializeField]
   private Shooting shooting;
-
   private float speed = 9f;
   private int lastFacing = 1;
   private Vector3 movement;
 
+  //inputs
   private float
     horizontalInput,
     verticalInput,
@@ -46,7 +42,7 @@ public class CharacterController : Controller
     verticalInput = input.VerticalAxis;
     aimHorizontalInput = input.AimHorizontal;
     aimVerticalInput = input.AimVertical;
-    actionInput = input.AimVertical;
+    actionInput = input.Action;
     interact = input.Interact;
   }
 
@@ -108,8 +104,8 @@ public class CharacterController : Controller
     animator.SetFloat("LastFacing", lastFacing);
     animator.SetFloat("Horizontal", movement.x);
     animator.SetFloat("Vertical", movement.y);
-    animator.SetFloat("AimHorizontal", shooting.GetAiming().x);
-    animator.SetFloat("AimVertical", shooting.GetAiming().y);
+    animator.SetFloat("AimHorizontal", shooting.GetAimDirection().x);
+    animator.SetFloat("AimVertical", shooting.GetAimDirection().y);
     animator.SetFloat("Magnitude", movement.magnitude);
   }
 
@@ -137,7 +133,10 @@ public class CharacterController : Controller
     currentInteractable = null;
   }
 
-  void Start() { }
+  void Start()
+  {
+    shooting = new Shooting(this, inventory);
+  }
 
   // Update is called once per frame
   void Update()
@@ -145,6 +144,7 @@ public class CharacterController : Controller
     Animate();
     InteractWith();
     SetMovement();
+    shooting.Update();
   }
 
   void FixedUpdate()
