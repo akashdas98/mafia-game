@@ -7,6 +7,13 @@ TagManager:
   - Car
   - Character
   - Building
+  - SceneManager
+  - Terrain
+  - AimTarget
+  - EnclosureCollider
+  - HitCollider
+  - DepthCollider
+  - PlayerCinemachine
   layers:
   - Default
   - TransparentFX
