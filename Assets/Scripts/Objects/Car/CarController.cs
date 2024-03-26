@@ -20,82 +20,100 @@ public class CarController : Controller
   public Rigidbody2D rigidBody;
   public CinemachineVirtualCamera cinemachineCamera;
   private Vector2 direction = new Vector2(1, 0);
-  private float horizontalInput, verticalInput, interact, brakeInput;
+  private GameObject? driver;
 
-  public override void SetInputs(InputData input)
+  public void SetDirection(Vector2 direction)
   {
-    brakeInput = input.Brake > 0 ? 1 : 0;
-    horizontalInput = input.HorizontalAxis;
-    verticalInput = input.VerticalAxis;
-    interact = input.Interact;
-
-    direction = new Vector2(horizontalInput, verticalInput);
+    this.direction = direction;
   }
 
-  public override Dictionary<string, float> GetInputs()
+  public void Forward()
   {
-    return new Dictionary<string, float> {
-      {"brakeInput", brakeInput},
-      {"horizontalInput", horizontalInput},
-      {"verticalInput", verticalInput},
-      {"interact", interact},
-    };
-  }
-
-  public override void ResetInputs()
-  {
-    brakeInput = 0;
-    horizontalInput = 0;
-    verticalInput = 0;
-    interact = 0;
-
-    direction = new Vector2(horizontalInput, verticalInput);
-  }
-
-  public override void Interact(GameObject other, ControlManager cm)
-  {
-    AssignControlManager(cm);
-    if (other.CompareTag("Character"))
+    if (speed <= 10)
     {
-      Enter(other);
+      speed += forward;
+      speed = Mathf.Clamp(speed, minSpeed, maxSpeed);
+      return;
+    }
+
+    // Get the current direction and target angle
+    float currentDirection = GetCurrentDirection();
+    float targetAngle = GetTargetAngle();
+    float angleDifference = AngleDifference(currentDirection, targetAngle);
+
+    // Adjust acceleration based on the angle difference
+    float turnFactor = Mathf.Clamp01(angleDifference / 180f) * turnFactorMultiplier;
+
+    // Apply acceleration
+    speed += forward - (speed * turnFactor);
+
+    // Clamp speed within the specified range
+    speed = Mathf.Clamp(speed, minSpeed, maxSpeed);
+  }
+
+  public void Reverse()
+  {
+    speed -= reverse;
+    if (speed < minSpeed)
+    {
+      speed = minSpeed;
     }
   }
 
-  private void Enter(GameObject player)
+  public void GradualStop()
   {
-    if (player == null) return;
+    if (Mathf.Abs(speed) <= 2)
+    {
+      speed = 0;
+      return;
+    }
+    speed = speed - (speed * friction);
+  }
 
+  public void Brake()
+  {
+    if (speed <= 3)
+    {
+      speed = 0;
+      return;
+    }
+    speed = speed - (speed * brake);
+  }
+
+  public bool Moving()
+  {
+    return speed > 0;
+  }
+
+  public void Enter(GameObject player)
+  {
     CharacterController playerController = player.GetComponent<CharacterController>();
     if (playerController != null)
     {
-      // Make the player a child of the car and invisible
+      driver = player;
+
+      InputManager cm = player.GetComponent<Refs>().InputManager;
+
       player.transform.parent = transform;
       playerController.DisableVisibility();
-
       playerController.SwitchToKinematic(true);
-
-      playerController.DisableControls();
-      controlManager.AddController(this);
-      EnableControls();
+      cm.SetInputHandler(Refs.InputHandler);
     }
   }
-
-  private void Exit(GameObject player)
+  public void Exit()
   {
-    if (player == null) return;
+    if (driver == null) return;
 
-    CharacterController playerController = player.GetComponent<CharacterController>();
-    if (playerController != null)
+    Refs driverRefs = driver.GetComponent<Refs>();
+    CharacterController driverController = (CharacterController)driverRefs.Controller;
+    if (driverController != null)
     {
-      // Reset the parent of the player, reset the rotation and make visible
-      player.transform.parent = null;
-      player.transform.eulerAngles = new Vector3(player.transform.eulerAngles.x, player.transform.eulerAngles.y, 0);
-      playerController.EnableVisibility();
-
-      playerController.SwitchToKinematic(false);
-
-      DisableControls();
-      playerController.EnableControls();
+      // Reset the parent of the driver, reset the rotation and make visible
+      driver.transform.parent = null;
+      driver.transform.eulerAngles = new Vector3(driver.transform.eulerAngles.x, driver.transform.eulerAngles.y, 0);
+      driverController.EnableVisibility();
+      driverController.SwitchToKinematic(false);
+      Refs.InputManager.SetInputHandler(driverRefs.InputHandler);
     }
   }
 
@@ -149,19 +167,20 @@ public class CarController : Controller
     }
   }
 
-  public float OppositeAngle(float angle)
+  private float OppositeAngle(float angle)
   {
     float opposite = (RoundTo2(NormalizeAngle(angle)) + 180) % 360;
     return opposite < 0 ? 360 + opposite : opposite;
   }
 
-  public float AngleDifference(float a, float b)
+  private float AngleDifference(float a, float b)
   {
     return RoundTo2(Mathf.Abs(Mathf.DeltaAngle(a, b)));
   }
 
   private void Animate()
   {
+    Animator animator = Refs.Animator;
     float currentDirection = GetCurrentDirection();
     float angleInRadians = Mathf.Deg2Rad * currentDirection; // Convert degrees to radians
     float posX = Mathf.Cos(angleInRadians);
@@ -196,7 +215,7 @@ public class CarController : Controller
     {
       transform.Rotate(new Vector3(0, 0, difference * turnDirection));
     }
-    else if ((horizontalInput != 0 || verticalInput != 0) && speed != 0)
+    else if ((direction.x != 0 || direction.y != 0) && speed != 0)
     {
       transform.Rotate(new Vector3(0, 0, increment));
     }
@@ -211,125 +230,14 @@ public class CarController : Controller
     }
   }
 
-  private void Forward()
-  {
-    if (speed <= 10)
-    {
-      speed += forward;
-      speed = Mathf.Clamp(speed, minSpeed, maxSpeed);
-      return;
-    }
-
-    // Get the current direction and target angle
-    float currentDirection = GetCurrentDirection();
-    float targetAngle = GetTargetAngle();
-    float angleDifference = AngleDifference(currentDirection, targetAngle);
-
-    // Adjust acceleration based on the angle difference
-    float turnFactor = Mathf.Clamp01(angleDifference / 180f) * turnFactorMultiplier;
-
-    // Apply acceleration
-    speed += forward - (speed * turnFactor);
-
-    // Clamp speed within the specified range
-    speed = Mathf.Clamp(speed, minSpeed, maxSpeed);
-  }
-
-  private void Reverse()
-  {
-    speed -= reverse;
-    if (speed < minSpeed)
-    {
-      speed = minSpeed;
-    }
-  }
-
-  private void GradualStop()
-  {
-    if (Mathf.Abs(speed) <= 2)
-    {
-      speed = 0;
-      return;
-    }
-    speed = speed - (speed * friction);
-  }
-
-  private void Brake()
-  {
-    if (speed <= 3)
-    {
-      speed = 0;
-      return;
-    }
-    speed = speed - (speed * brake);
-  }
-
-  bool HasInput()
-  {
-    return horizontalInput != 0 || verticalInput != 0;
-  }
-
-  bool ShouldBrake()
-  {
-    return speed > 0;
-  }
-
-  private void ExitPlayerOnInput()
-  {
-    if (interact != 0)
-    {
-      GameObject driver = null;
-      foreach (Transform child in transform)
-      {
-        if (child.CompareTag("Character") || child.CompareTag("Player"))
-        {
-          driver = child.gameObject;
-          break; // Exit the loop once the player is found
-        }
-      }
-      if (driver != null)
-      {
-        Exit(driver);
-      }
-    }
-  }
-
   // Update is called once per frame
   void Update()
   {
     Animate();
-    ExitPlayerOnInput();
   }
 
   void FixedUpdate()
   {
-    if (brakeInput == 0)
-    {
-      if (HasInput())
-      {
-        Forward();
-      }
-      else
-      {
-        GradualStop();
-      }
-    }
-    else
-    {
-      if (ShouldBrake())
-      {
-        Brake();
-      }
-      else if (HasInput())
-      {
-        Reverse();
-      }
-      else
-      {
-        GradualStop();
-      }
-    }
-
     Drive();
   }
 }

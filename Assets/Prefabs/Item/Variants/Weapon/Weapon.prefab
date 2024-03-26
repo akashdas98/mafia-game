@@ -9,7 +9,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2021084783199542920, guid: 32e12f4731e65ba43828da8c9e6a8336, type: 3}
       propertyPath: m_Name
-      value: Item
+      value: Weapon
       objectReference: {fileID: 0}
     - target: {fileID: 6542125981114862119, guid: 32e12f4731e65ba43828da8c9e6a8336, type: 3}
       propertyPath: m_RootOrder

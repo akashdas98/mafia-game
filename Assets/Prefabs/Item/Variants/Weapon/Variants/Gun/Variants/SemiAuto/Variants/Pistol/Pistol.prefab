@@ -55,7 +55,9 @@ PrefabInstance:
       propertyPath: m_Name
       value: Pistol
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: -5451549482150571165, guid: 03259fecd0ab7c84f8a266c1fc396101, type: 3}
+    - {fileID: 1419889936885386186, guid: 03259fecd0ab7c84f8a266c1fc396101, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: 03259fecd0ab7c84f8a266c1fc396101, type: 3}
 --- !u!1 &2811274883809704574 stripped
 GameObject:

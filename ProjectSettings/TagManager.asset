@@ -14,6 +14,7 @@ TagManager:
   - HitCollider
   - DepthCollider
   - PlayerCinemachine
+  - Interactable
   layers:
   - Default
   - TransparentFX

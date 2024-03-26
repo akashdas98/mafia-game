@@ -9,7 +9,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 975927500699313866, guid: c6093ffa593ab974d9fbe84de62e52d9, type: 3}
       propertyPath: m_Name
-      value: Weapon
+      value: Melee
       objectReference: {fileID: 0}
     - target: {fileID: 5426039210413748837, guid: c6093ffa593ab974d9fbe84de62e52d9, type: 3}
       propertyPath: m_RootOrder
@@ -55,5 +55,24 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 6485941522562939487, guid: c6093ffa593ab974d9fbe84de62e52d9, type: 3}
+    - {fileID: 7971898108967434091, guid: c6093ffa593ab974d9fbe84de62e52d9, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: c6093ffa593ab974d9fbe84de62e52d9, type: 3}
+--- !u!1 &8278324754697072872 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 975927500699313866, guid: c6093ffa593ab974d9fbe84de62e52d9, type: 3}
+  m_PrefabInstance: {fileID: 9181067661906089506}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6124871756828469058
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8278324754697072872}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 199755b5089ac6447ababcf15ae811f2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 

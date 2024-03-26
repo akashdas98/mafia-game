@@ -4,5 +4,5 @@ using UnityEngine;
 
 public abstract class CharacterControllerHelper : ControllerHelper<CharacterController>
 {
-  public CharacterControllerHelper(CharacterController controller, Inventory inventory) : base(controller, inventory) { }
+  public CharacterControllerHelper(CharacterController controller) : base(controller) { }
 }

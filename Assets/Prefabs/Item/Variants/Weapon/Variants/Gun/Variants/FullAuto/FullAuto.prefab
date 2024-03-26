@@ -53,7 +53,8 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7470617992974612697, guid: a20c051d1ffc04d49b65bf02b6870a8f, type: 3}
       propertyPath: m_Name
-      value: Gun
+      value: FullAuto
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: -5891393037473540869, guid: a20c051d1ffc04d49b65bf02b6870a8f, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: a20c051d1ffc04d49b65bf02b6870a8f, type: 3}

@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 
-public class Target : MonoBehaviour
+public class Target : Base
 {
   [SerializeField] private SpriteRenderer sprite;
-  [SerializeField] private BoxCollider2D characterEnclosure;
-  [SerializeField] private CharacterController characterController;
 
   private bool enabled = false;
   private GunController gunController;

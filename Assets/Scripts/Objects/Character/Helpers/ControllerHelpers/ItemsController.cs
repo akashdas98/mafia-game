@@ -4,7 +4,11 @@ using UnityEngine;
 
 public class ItemsController : CharacterControllerHelper
 {
-  public ItemsController(CharacterController controller, Inventory inventory) : base(controller, inventory) { }
+  private Inventory inventory;
+  public ItemsController(CharacterController controller) : base(controller)
+  {
+    inventory = controller.Refs.Inventory;
+  }
 
   public void PickUpItem(Item item)
   {
@@ -42,7 +46,7 @@ public class ItemsController : CharacterControllerHelper
     {
       item.gameObject.SetActive(true);
 
-      SceneDetails currentSceneDetails = controller.GetCurrentSceneDetails();
+      SceneDetails currentSceneDetails = controller.Refs.CurrentSceneDetails;
       Transform itemsTransform = currentSceneDetails
         .GetTerrain()
         .transform.Find("TileGrid").gameObject
@@ -52,27 +56,21 @@ public class ItemsController : CharacterControllerHelper
     };
   }
 
-  private void OnDropWeapon()
+  public void DropEquippedWeapon()
   {
-    if (inputs["drop"] != 0 && inventory.GetEquippedWeapon())
+    if (inventory.GetEquippedWeapon())
     {
       DropItem(inventory.GetEquippedWeapon());
     }
   }
 
-  private void OnScrollInput()
+  public void CycleWeapon(int n)
   {
-    if (inputs["scroll"] != 0)
-    {
-      inventory.CycleWeapon(inputs["scroll"] > 0 ? -1 : 1);
-    }
+    inventory.CycleWeapon(n);
   }
 
   public override void Update()
   {
     base.Update();
-
-    OnScrollInput();
-    OnDropWeapon();
   }
 }
