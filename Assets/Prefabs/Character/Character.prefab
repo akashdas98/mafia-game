@@ -290,7 +290,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 13cdba84c33a50e43ab7ec1b8934f157, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _refs: {fileID: 4222453751268819857}
+  entityRefs: {fileID: 4222453751268819857}
   rigidBody: {fileID: 5705468345241087687}
 --- !u!114 &612176736669030990
 MonoBehaviour:
@@ -304,7 +304,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c030a6f2ca4c820479715a956197caac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _refs: {fileID: 4222453751268819857}
+  entityRefs: {fileID: 4222453751268819857}
 --- !u!114 &1589305957437760221
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -326,20 +326,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 8125045372922214359}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c0086960b6af2134a93487d9f5c1a310, type: 3}
+  m_Script: {fileID: 11500000, guid: a041ec3f15ca4fd5b23e2b37bb960302, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _interactionCollider: {fileID: 9030230539173956184}
-  _hitCollider: {fileID: 1488830990211657201}
-  _depthCollider: {fileID: 1788678931632695580}
-  _controller: {fileID: 8626712497628240913}
-  _controlManager: {fileID: 0}
-  _interactable: {fileID: 4186513456486222375}
-  _inventory: {fileID: 612176736669030990}
-  _animator: {fileID: 31944219512970348}
-  _currentSceneDetails: {fileID: 0}
-  _inputHandler: {fileID: 1980171963263814457}
-  _aimTarget: {fileID: 412502517255557361}
+  parts: []
 --- !u!114 &1980171963263814457
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -352,7 +342,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4a44b73bf37dd5e4da2202a4bb8face2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _refs: {fileID: 4222453751268819857}
+  entityRefs: {fileID: 4222453751268819857}
 --- !u!1 &8326224295495830566
 GameObject:
   m_ObjectHideFlags: 0
@@ -754,6 +744,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5364509288993863196, guid: 31fbd6daa70d5c148941e837e7007bd5, type: 3}
+      propertyPath: useObliqueLoftLos
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5364509288993863196, guid: 31fbd6daa70d5c148941e837e7007bd5, type: 3}
       propertyPath: characterEnclosure
       value: 
       objectReference: {fileID: 5471649129381576703}
@@ -795,7 +789,7 @@ PrefabInstance:
     m_TransformParent: {fileID: 2733369090921060018}
     m_Modifications:
     - target: {fileID: -2480022257029578526, guid: 038c4b364a47bfc44971948ee3ec62d5, type: 3}
-      propertyPath: _refs
+      propertyPath: entityRefs
       value: 
       objectReference: {fileID: 4222453751268819857}
     - target: {fileID: 1841158642631252834, guid: 038c4b364a47bfc44971948ee3ec62d5, type: 3}

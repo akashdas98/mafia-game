@@ -5,6 +5,7 @@ using UnityEngine;
 public abstract class Controller : Base
 {
   protected List<Interactable> interactables = new List<Interactable>();
+  public SceneDetails CurrentSceneDetails { get; private set; }
 
   private void AddInteractable(Interactable interactable)
   {
@@ -33,7 +34,7 @@ public abstract class Controller : Base
     if (other.CompareTag("SceneManager"))
     {
       SceneDetails sceneDetails = other.GetComponent<SceneDetails>();
-      Refs.SetCurrentScene(sceneDetails);
+      SetCurrentScene(sceneDetails);
     }
     else if (other.gameObject.CompareTag("Interactable"))
     {
@@ -48,6 +49,15 @@ public abstract class Controller : Base
     {
       Interactable interactable = other.GetComponent<Interactable>();
       RemoveInteractable(interactable);
+    }
+  }
+
+  private void SetCurrentScene(SceneDetails sceneDetails)
+  {
+    if (sceneDetails != null)
+    {
+      CurrentSceneDetails = sceneDetails;
+      Debug.Log("Current Scene: " + CurrentSceneDetails.name);
     }
   }
 }

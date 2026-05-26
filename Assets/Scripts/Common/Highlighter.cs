@@ -10,6 +10,7 @@ public class Highlighter : MonoBehaviour
 
   private Color originalColor; // To store the original color of the renderer
   private Color highlightColor = new Color(1f, 1f, 0.2f, 0.8f);
+  private Color obliqueBlockedColor = new Color(0.35f, 1f, 0.35f, 0.85f);
 
   private Color MultiplyColors(Color colorA, Color colorB)
   {
@@ -25,6 +26,15 @@ public class Highlighter : MonoBehaviour
     {
       // Change the renderer's color to the highlight color
       renderer.material.color = MultiplyColors(originalColor, highlightColor);
+    }
+  }
+
+  public void HighlightObliqueBlocked()
+  {
+    ResetHighlight();
+    if (renderer != null)
+    {
+      renderer.material.color = Color.Lerp(originalColor, obliqueBlockedColor, 0.6f);
     }
   }
 

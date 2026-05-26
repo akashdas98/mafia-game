@@ -29,14 +29,14 @@ public class InputManager : MonoBehaviour
   {
     this.inputHandler.ResetInputs();
     this.inputHandler = inputHandler;
-    inputHandler.Refs.AssignInputManager(this);
+    inputHandler.AssignInputManager(this);
   }
 
   private void InitializeInputHandler()
   {
     if (inputHandler != null)
     {
-      inputHandler.Refs.AssignInputManager(this);
+      inputHandler.AssignInputManager(this);
     }
   }
 

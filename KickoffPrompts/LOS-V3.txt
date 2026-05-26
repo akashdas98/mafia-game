@@ -1,0 +1,165 @@
+You are working on my Unity 2D oblique/top-down game.
+
+I already have an existing LOS/bullet collision prototype. It currently works by using base ground positions, object depth, height, and custom intersection logic to approximate whether a shot hits an obstacle. Do not delete or blindly replace the existing system. First inspect the current implementation and transition it carefully into the new architecture described below.
+
+Goal:
+Build a proper custom 2.5D / oblique-world collision and LOS system where objects are represented as hidden 3D logic volumes, while the game remains visually 2D.
+
+Core concept:
+The visual sprite is not the collision truth. Every relevant object should have an editable logical volume. A shot is a 3D logic ray from the shooter’s ground position + shoot height to the target’s ground position + aimed height. Collision is determined by intersecting that ray with actual generated polygonal surfaces, not by plain Unity 2D raycast overlap.
+
+Coordinate system:
+- X = horizontal ground axis
+- Y = vertical height
+- Z = depth axis
+- Player/target/obstacle base positions are ground-space coordinates.
+- A shot ray is:
+  from = playerGroundPosition + shootHeight
+  to = targetGroundPosition + aimedTargetHeight
+
+Final system:
+Create an “Oblique Loft Collider” system.
+
+Editor drawing workflow:
+1. User draws a top-down footprint polygon.
+   - Click points to create straight-line segments.
+   - Polygon closes when clicking the starting point again.
+   - This footprint represents the bird’s-eye ground/depth shape.
+
+2. User draws vertical slice polygons along the footprint/depth.
+   - At least two slices are mandatory: front slice and back slice.
+   - Optional middle slices can be added.
+   - Each slice is drawn with straight-line point clicking and closes by clicking the start point.
+   - Slices define the object’s vertical profile at that depth position.
+
+3. The program connects the slices deterministically to generate a full polygonal 3D logic volume.
+   - Front face = first slice.
+   - Back face = last slice.
+   - Connecting faces are generated between matching edges of neighboring slices.
+   - Top, bottom, side, front, and back surfaces are determined by generated geometry.
+
+Important v1 constraints:
+- All slices must have the same vertex count.
+- Slice vertex ordering must be consistent.
+- Footprint must be a valid closed polygon.
+- Front and back slices are required.
+- Middle slices are optional.
+- If constraints fail, show clear validation errors in editor.
+- Do not attempt complex remeshing/triangulation in v1 unless already simple.
+
+Surface generation:
+For every neighboring slice pair A and B:
+- For each vertex index i:
+  - j = (i + 1) % vertexCount
+  - Create face quad:
+    A[i], A[j], B[j], B[i]
+- Also create cap faces for first and last slice.
+
+Surface classification:
+Do not require manual tagging.
+For each generated face:
+- Calculate face normal using cross product.
+- Classify by normal direction:
+  - Mostly upward normal = Top
+  - Mostly downward normal = Bottom
+  - Mostly forward/depth-facing = Front/Back
+  - Mostly side-facing = Side
+  - Sloped surfaces should still retain their normal and can be classified as SlopedTop/SlopedBottom/Side depending on dominant normal.
+Store:
+- face vertices
+- face normal
+- surface type
+- owning collider/object reference
+
+LOS / bullet collision:
+Implement custom 3D logic ray intersection:
+1. Build ray from shooter ground position + shoot height to target ground position + aimed target height.
+2. Broad phase may use 2D projected bounds or existing rough filters, but final collision must not rely on 2D ray overlap.
+3. For each candidate ObliqueLoftCollider:
+   - Test ray against every generated face.
+   - Use ray-plane intersection.
+   - Then check whether the hit point is inside the actual face polygon.
+   - Only then count as a valid hit.
+4. Return the closest valid hit before the target.
+5. If closest hit is target, shot is clear.
+6. If closest hit is obstacle face, shot is blocked.
+7. Hit result should include:
+   - hit object
+   - hit point in logic space
+   - distance along ray
+   - surface type
+   - surface normal
+   - face index/id
+
+Very important:
+A ray passing visually over or through a projected 2D collider does not mean it hit. Collision must happen only when the 3D logic ray intersects an actual generated face polygon.
+
+Transition plan:
+1. Inspect the current LOS/bullet collision system.
+2. Identify existing concepts that should be preserved:
+   - player base ground position
+   - target base ground position
+   - obstacle distance/depth/height logic
+   - existing LOS query APIs if possible
+   - any debug visualization already present
+3. Introduce the new system beside the old one first.
+   - Do not break current gameplay.
+   - Add feature flags or adapter methods if needed.
+4. Create compatibility wrappers so existing code can ask:
+   - “Is there line of sight?”
+   - “What object/surface was hit?”
+   - “Can this target height be hit?”
+5. Gradually route LOS checks through the new ObliqueLoftCollider system.
+6. Keep the old system temporarily as fallback until the new one is validated.
+7. Add debug gizmos so I can visually compare old vs new results.
+
+Required debug/editor tools:
+- Scene view drawing mode for footprint.
+- Scene view drawing mode for front/back/middle slices.
+- Point editing after drawing.
+- Gizmo rendering of generated volume.
+- Different visual indication for top/front/back/side/bottom faces.
+- Draw shot ray.
+- Draw closest hit point.
+- Draw hit normal.
+- Show surface type label near hit point.
+- Validation panel/messages for invalid collider setup.
+
+Implementation expectations:
+- Keep code modular and readable.
+- Separate editor-only drawing code from runtime collision code.
+- Runtime should not depend on UnityEditor.
+- Use serializable data structures for footprint, slices, generated faces, and collision results.
+- Prefer deterministic geometry over physics-engine magic.
+- Avoid overengineering. Build the simplest robust v1.
+
+Suggested classes/components:
+- ObliqueLoftCollider
+- ObliqueLoftSlice
+- ObliqueLoftFace
+- ObliqueSurfaceType
+- ObliqueRay
+- ObliqueRayHit
+- ObliqueLoftBuilder
+- ObliqueRaycaster
+- ObliqueLoftColliderEditor
+
+Before coding:
+- First inspect the current project structure.
+- Find the existing LOS/bullet collision implementation.
+- Explain briefly what files/classes are relevant.
+- Then implement the new system in a transition-friendly way.
+- Preserve existing behavior unless explicitly replacing a call site.
+
+Deliverables:
+1. Runtime data structures.
+2. Surface generation from slices.
+3. Deterministic surface classification using normals.
+4. Ray-face intersection.
+5. Closest-hit LOS query.
+6. Scene/debug gizmos.
+7. Editor drawing workflow, at least basic v1.
+8. Compatibility layer with the existing LOS system.
+9. Notes explaining how to migrate existing obstacles to ObliqueLoftCollider objects.
+
+Do not simplify this into normal Unity 2D colliders. This is a custom oblique-world logic system.

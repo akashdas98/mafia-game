@@ -1,4 +1,4 @@
-fileFormatVersion: 2
+﻿fileFormatVersion: 2
 guid: de31460249466274da367a250222e558
 TextureImporter:
   internalIDToNameTable: []
@@ -108,8 +108,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_0
       rect:
         serializedVersion: 2
-        x: 4
-        y: 224
+        x: 12
+        y: 604
         width: 154
         height: 72
       alignment: 0
@@ -129,8 +129,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_1
       rect:
         serializedVersion: 2
-        x: 228
-        y: 232
+        x: 254
+        y: 604
         width: 154
         height: 72
       alignment: 0
@@ -150,10 +150,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_2
       rect:
         serializedVersion: 2
-        x: 10
-        y: 144
-        width: 144
-        height: 64
+        x: 178
+        y: 532
+        width: 64
+        height: 144
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -171,10 +171,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_3
       rect:
         serializedVersion: 2
-        x: 230
-        y: 144
-        width: 144
-        height: 64
+        x: 420
+        y: 532
+        width: 64
+        height: 144
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -192,10 +192,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_4
       rect:
         serializedVersion: 2
-        x: 1154
-        y: 0
-        width: 152
-        height: 64
+        x: 12
+        y: 280
+        width: 64
+        height: 152
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -213,10 +213,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_5
       rect:
         serializedVersion: 2
-        x: 1312
-        y: 128
-        width: 152
-        height: 64
+        x: 88
+        y: 280
+        width: 64
+        height: 152
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -234,10 +234,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_8
       rect:
         serializedVersion: 2
-        x: 2824
-        y: 0
-        width: 152
-        height: 64
+        x: 164
+        y: 28
+        width: 64
+        height: 152
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -255,8 +255,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_10
       rect:
         serializedVersion: 2
-        x: 20
-        y: 0
+        x: 12
+        y: 446
         width: 170
         height: 72
       alignment: 0
@@ -276,8 +276,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_11
       rect:
         serializedVersion: 2
-        x: 218
-        y: 0
+        x: 194
+        y: 446
         width: 164
         height: 72
       alignment: 0
@@ -297,8 +297,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_12
       rect:
         serializedVersion: 2
-        x: 406
-        y: 0
+        x: 370
+        y: 446
         width: 168
         height: 72
       alignment: 0
@@ -318,8 +318,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_13
       rect:
         serializedVersion: 2
-        x: 596
-        y: 0
+        x: 550
+        y: 448
         width: 170
         height: 70
       alignment: 0
@@ -339,8 +339,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_14
       rect:
         serializedVersion: 2
-        x: 786
-        y: 0
+        x: 732
+        y: 446
         width: 172
         height: 72
       alignment: 0
@@ -360,8 +360,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_15
       rect:
         serializedVersion: 2
-        x: 982
-        y: 0
+        x: 916
+        y: 446
         width: 168
         height: 72
       alignment: 0
@@ -381,8 +381,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_16
       rect:
         serializedVersion: 2
-        x: 1492
-        y: 8
+        x: 12
+        y: 194
         width: 154
         height: 72
       alignment: 0
@@ -402,10 +402,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_18
       rect:
         serializedVersion: 2
-        x: 2646
-        y: 128
-        width: 154
-        height: 64
+        x: 240
+        y: 26
+        width: 64
+        height: 154
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -423,10 +423,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_20
       rect:
         serializedVersion: 2
-        x: 2826
-        y: 64
-        width: 150
-        height: 64
+        x: 316
+        y: 30
+        width: 64
+        height: 150
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -444,8 +444,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_21
       rect:
         serializedVersion: 2
-        x: 2056
-        y: 8
+        x: 540
+        y: 194
         width: 166
         height: 72
       alignment: 0
@@ -465,8 +465,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_22
       rect:
         serializedVersion: 2
-        x: 2252
-        y: 8
+        x: 718
+        y: 194
         width: 162
         height: 72
       alignment: 0
@@ -486,8 +486,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_23
       rect:
         serializedVersion: 2
-        x: 2438
-        y: 8
+        x: 892
+        y: 194
         width: 168
         height: 72
       alignment: 0
@@ -507,10 +507,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_24
       rect:
         serializedVersion: 2
-        x: 1158
-        y: 64
-        width: 148
-        height: 64
+        x: 164
+        y: 284
+        width: 64
+        height: 148
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -528,10 +528,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_25
       rect:
         serializedVersion: 2
-        x: 1154
-        y: 128
-        width: 152
-        height: 64
+        x: 240
+        y: 280
+        width: 64
+        height: 152
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -549,10 +549,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_26
       rect:
         serializedVersion: 2
-        x: 1316
-        y: 0
-        width: 150
-        height: 64
+        x: 316
+        y: 282
+        width: 64
+        height: 150
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -570,8 +570,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_17
       rect:
         serializedVersion: 2
-        x: 1668
-        y: 8
+        x: 178
+        y: 194
         width: 170
         height: 72
       alignment: 0
@@ -591,8 +591,8 @@ TextureImporter:
       name: Car_2_complete_32x32_1_19
       rect:
         serializedVersion: 2
-        x: 1862
-        y: 10
+        x: 360
+        y: 196
         width: 168
         height: 70
       alignment: 0
@@ -612,10 +612,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_6
       rect:
         serializedVersion: 2
-        x: 2646
-        y: 0
-        width: 154
-        height: 64
+        x: 12
+        y: 26
+        width: 64
+        height: 154
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -633,10 +633,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_27
       rect:
         serializedVersion: 2
-        x: 1318
-        y: 64
-        width: 148
-        height: 64
+        x: 392
+        y: 284
+        width: 64
+        height: 148
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -654,10 +654,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_7
       rect:
         serializedVersion: 2
-        x: 2650
-        y: 64
-        width: 150
-        height: 64
+        x: 88
+        y: 30
+        width: 64
+        height: 150
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -675,10 +675,10 @@ TextureImporter:
       name: Car_2_complete_32x32_1_28
       rect:
         serializedVersion: 2
-        x: 2824
-        y: 128
-        width: 152
-        height: 64
+        x: 392
+        y: 28
+        width: 64
+        height: 152
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}

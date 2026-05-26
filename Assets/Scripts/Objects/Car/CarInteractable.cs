@@ -6,7 +6,7 @@ public class CarInteractable : Interactable
 {
   public override void Interact(GameObject other)
   {
-    if (other.CompareTag("Character") && Refs.Controller is CarController carController)
+    if (other.CompareTag("Character") && TryGetPart(out CarController carController))
     {
       carController.Enter(other);
     }

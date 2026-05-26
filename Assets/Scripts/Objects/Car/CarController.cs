@@ -5,6 +5,9 @@ using Cinemachine;
 
 public class CarController : Controller
 {
+  private const int DirectionCount = 16;
+  private const float DegreesPerDirection = 360f / DirectionCount;
+
   public float
       forward = 0.2f,
       reverse = 0.05f,
@@ -21,6 +24,8 @@ public class CarController : Controller
   public CinemachineVirtualCamera cinemachineCamera;
   private Vector2 direction = new Vector2(1, 0);
   private GameObject? driver;
+  private int currentDirectionIndex = 0;
+  private float steeringProgressDegrees = 0f;
 
   public void SetDirection(Vector2 direction)
   {
@@ -90,22 +95,26 @@ public class CarController : Controller
     CharacterController playerController = player.GetComponent<CharacterController>();
     if (playerController != null)
     {
+      InputHandler playerInputHandler = playerController.EntityRefs?.Get<InputHandler>();
+      InputManager inputManager = playerInputHandler != null ? playerInputHandler.InputManager : player.GetComponentInParent<InputManager>();
+      InputHandler carInputHandler = EntityRefs?.Get<InputHandler>();
+      if (inputManager == null || carInputHandler == null)
+      {
+        return;
+      }
+
       driver = player;
-
-      InputManager cm = player.GetComponent<Refs>().InputManager;
-
       player.transform.parent = transform;
       playerController.DisableVisibility();
       playerController.SwitchToKinematic(true);
-      cm.SetInputHandler(Refs.InputHandler);
+      inputManager.SetInputHandler(carInputHandler);
     }
   }
   public void Exit()
   {
     if (driver == null) return;
 
-    Refs driverRefs = driver.GetComponent<Refs>();
-    CharacterController driverController = (CharacterController)driverRefs.Controller;
+    CharacterController driverController = driver.GetComponent<CharacterController>();
     if (driverController != null)
     {
       // Reset the parent of the driver, reset the rotation and make visible
@@ -113,7 +122,12 @@ public class CarController : Controller
       driver.transform.eulerAngles = new Vector3(driver.transform.eulerAngles.x, driver.transform.eulerAngles.y, 0);
       driverController.EnableVisibility();
       driverController.SwitchToKinematic(false);
-      Refs.InputManager.SetInputHandler(driverRefs.InputHandler);
+      InputHandler driverInputHandler = driverController.EntityRefs?.Get<InputHandler>();
+      InputManager inputManager = driverInputHandler != null ? driverInputHandler.InputManager : driver.GetComponentInParent<InputManager>();
+      if (inputManager != null && driverInputHandler != null)
+      {
+        inputManager.SetInputHandler(driverInputHandler);
+      }
     }
   }
 
@@ -138,10 +152,7 @@ public class CarController : Controller
   }
   private float GetCurrentDirection()
   {
-    Vector3 rotation = transform.rotation.eulerAngles;
-    float currentDirection = NormalizeAngle(rotation.z);
-
-    return currentDirection;
+    return DirectionAngle(currentDirectionIndex);
   }
 
   private float GetTargetAngle()
@@ -149,28 +160,37 @@ public class CarController : Controller
     return Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
   }
 
-  private int DetermineTurnDirection(float currentDirection, float targetAngle)
+  private float DirectionAngle(int directionIndex)
   {
-    float shortestDistance = Mathf.DeltaAngle(currentDirection, targetAngle);
-
-    if (shortestDistance < 0)
-    {
-      return -1;
-    }
-    else if (shortestDistance > 0)
-    {
-      return 1;
-    }
-    else
-    {
-      return 0;
-    }
+    return NormalizeAngle(directionIndex * DegreesPerDirection);
   }
 
-  private float OppositeAngle(float angle)
+  private Vector2 DirectionFromIndex(int directionIndex)
   {
-    float opposite = (RoundTo2(NormalizeAngle(angle)) + 180) % 360;
-    return opposite < 0 ? 360 + opposite : opposite;
+    float angleInRadians = Mathf.Deg2Rad * DirectionAngle(directionIndex);
+    return new Vector2(Mathf.Cos(angleInRadians), Mathf.Sin(angleInRadians));
+  }
+
+  private int DirectionIndexFromAngle(float angle)
+  {
+    float normalizedAngle = NormalizeAngle(angle);
+    int directionIndex = Mathf.RoundToInt(normalizedAngle / DegreesPerDirection) % DirectionCount;
+    return directionIndex < 0 ? directionIndex + DirectionCount : directionIndex;
+  }
+
+  private int OppositeDirectionIndex(int directionIndex)
+  {
+    return (directionIndex + (DirectionCount / 2)) % DirectionCount;
+  }
+
+  private int ShortestDirectionDelta(int fromDirectionIndex, int toDirectionIndex)
+  {
+    int delta = (toDirectionIndex - fromDirectionIndex + DirectionCount) % DirectionCount;
+    if (delta > DirectionCount / 2)
+    {
+      delta -= DirectionCount;
+    }
+    return delta;
   }
 
   private float AngleDifference(float a, float b)
@@ -180,7 +200,12 @@ public class CarController : Controller
 
   private void Animate()
   {
-    Animator animator = Refs.Animator;
+    Animator animator = EntityRefs?.Get<Animator>();
+    if (animator == null)
+    {
+      return;
+    }
+
     float currentDirection = GetCurrentDirection();
     float angleInRadians = Mathf.Deg2Rad * currentDirection; // Convert degrees to radians
     float posX = Mathf.Cos(angleInRadians);
@@ -192,37 +217,59 @@ public class CarController : Controller
 
   private void Move()
   {
-    Vector2 forwardDirection = transform.right;
+    Vector2 forwardDirection = DirectionFromIndex(currentDirectionIndex);
     rigidBody.velocity = forwardDirection * speed;
   }
 
   private void Turn()
   {
-    float currentDirection = GetCurrentDirection();
-    float targetAngle = GetTargetAngle();
-    float reverseAngle = OppositeAngle(targetAngle);
-    float angleDifference = AngleDifference(currentDirection, targetAngle);
-    float reverseDifference = AngleDifference(currentDirection, reverseAngle);
-    float turnDirection = DetermineTurnDirection(currentDirection, targetAngle) * speed < 0 ? -1 : 1;
-    float absSpeed = Mathf.Abs(speed);
-
-    float speedFactor = absSpeed < speedFactorThreshold ? 0 : Mathf.Clamp01(absSpeed / maxSpeed) * speedFactorMultiplier;
-    float increment = turnDirection * rotationSpeed * (1 - speedFactor);
-
-    float difference = speed >= 0 ? angleDifference : reverseDifference;
-
-    if (difference < 3)
+    if ((direction.x == 0 && direction.y == 0) || speed == 0)
     {
-      transform.Rotate(new Vector3(0, 0, difference * turnDirection));
+      steeringProgressDegrees = 0;
+      return;
     }
-    else if ((direction.x != 0 || direction.y != 0) && speed != 0)
+
+    int inputDirectionIndex = DirectionIndexFromAngle(GetTargetAngle());
+    int targetDirectionIndex = speed >= 0 ? inputDirectionIndex : OppositeDirectionIndex(inputDirectionIndex);
+    int directionDelta = ShortestDirectionDelta(currentDirectionIndex, targetDirectionIndex);
+
+    if (directionDelta == 0)
     {
-      transform.Rotate(new Vector3(0, 0, increment));
+      steeringProgressDegrees = 0;
+      return;
+    }
+
+    int turnDirection = directionDelta < 0 ? -1 : 1;
+    float absSpeed = Mathf.Abs(speed);
+    float speedFactor = absSpeed < speedFactorThreshold ? 0 : Mathf.Clamp01(absSpeed / maxSpeed) * speedFactorMultiplier;
+    float increment = rotationSpeed * (1 - speedFactor);
+
+    if (increment <= 0)
+    {
+      return;
+    }
+
+    steeringProgressDegrees += increment;
+
+    while (steeringProgressDegrees >= DegreesPerDirection && currentDirectionIndex != targetDirectionIndex)
+    {
+      currentDirectionIndex = (currentDirectionIndex + turnDirection + DirectionCount) % DirectionCount;
+      steeringProgressDegrees -= DegreesPerDirection;
+
+      directionDelta = ShortestDirectionDelta(currentDirectionIndex, targetDirectionIndex);
+      if (directionDelta == 0)
+      {
+        steeringProgressDegrees = 0;
+        break;
+      }
+
+      turnDirection = directionDelta < 0 ? -1 : 1;
     }
   }
 
   private void Drive()
   {
+    transform.localRotation = Quaternion.identity;
     Move();
     if (speed != 0)
     {
@@ -233,6 +280,7 @@ public class CarController : Controller
   // Update is called once per frame
   void Update()
   {
+    transform.localRotation = Quaternion.identity;
     Animate();
   }
 

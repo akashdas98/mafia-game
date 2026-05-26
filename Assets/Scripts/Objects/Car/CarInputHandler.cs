@@ -38,7 +38,7 @@ public class CarInputHandler : InputHandler
 
   private void ExitPlayerOnInput()
   {
-    if (interact != 0 && Refs.Controller is CarController controller)
+    if (interact != 0 && TryGetPart(out CarController controller))
     {
       controller.Exit();
     }
@@ -46,7 +46,7 @@ public class CarInputHandler : InputHandler
 
   void Update()
   {
-    if (Refs.Controller is CarController controller)
+    if (TryGetPart(out CarController controller))
     {
       controller.SetDirection(new Vector2(horizontalInput, verticalInput));
     }
@@ -55,7 +55,7 @@ public class CarInputHandler : InputHandler
 
   void FixedUpdate()
   {
-    if (Refs.Controller is CarController controller)
+    if (TryGetPart(out CarController controller))
     {
       if (brakeInput == 0)
       {
