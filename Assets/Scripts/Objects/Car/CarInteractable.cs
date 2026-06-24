@@ -6,9 +6,9 @@ public class CarInteractable : Interactable
 {
   public override void Interact(GameObject other)
   {
-    if (other.CompareTag("Character") && TryGetPart(out CarController carController))
+    if (other.CompareTag("Character") && TryGetPart(out VehiclePossession vehiclePossession))
     {
-      carController.Enter(other);
+      vehiclePossession.Enter(other);
     }
   }
 }

@@ -1,17 +1,19 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Inventory : Base
+public class Inventory : MonoBehaviour
 {
+    [SerializeField] private Transform weaponsContainer;
+    [SerializeField] private Transform miscContainer;
+
     private List<Item> misc = new List<Item>();
-    private List<Weapon> weapons = new List<Weapon>();
+    private List<IEquippable> equippedItems = new List<IEquippable>();
 
     private int? equippedWeaponIndex;
 
     public int GetWeaponsCount()
     {
-        return weapons.Count;
+        return equippedItems.Count;
     }
 
     public bool AddItemToInventory(Item item)
@@ -21,16 +23,16 @@ public class Inventory : Base
             return false;
         }
 
-        string inventoryType;
+        Transform inventoryTransform;
 
-        if (item is Weapon weapon)
+        if (item is IEquippable equippable)
         {
-            if (weapons.Contains(weapon))
+            if (equippedItems.Contains(equippable))
             {
                 return false;
             }
-            weapons.Add(weapon);
-            inventoryType = InventoryType.Weapons.ToString();
+            equippedItems.Add(equippable);
+            inventoryTransform = weaponsContainer;
         }
         else
         {
@@ -39,10 +41,9 @@ public class Inventory : Base
                 return false;
             }
             misc.Add(item);
-            inventoryType = InventoryType.Misc.ToString();
+            inventoryTransform = miscContainer;
         }
 
-        Transform inventoryTransform = gameObject.transform.Find("Inventory")?.Find(inventoryType);
         item.transform.SetParent(inventoryTransform, false);
 
         return true;
@@ -56,7 +57,7 @@ public class Inventory : Base
         }
 
         if (
-            (item is Weapon weapon && weapons.Remove(weapon)) ||
+            (item is IEquippable equippable && equippedItems.Remove(equippable)) ||
             misc.Remove(item)
         )
         {
@@ -72,26 +73,42 @@ public class Inventory : Base
         {
             return null;
         }
-        if (equippedWeaponIndex < 0 || equippedWeaponIndex > weapons.Count - 1)
+        if (equippedWeaponIndex < 0 || equippedWeaponIndex > equippedItems.Count - 1)
         {
             equippedWeaponIndex = null;
             return null;
         }
-        return weapons[equippedWeaponIndex.Value];
+        return equippedItems[equippedWeaponIndex.Value].Item as Weapon;
+    }
+
+    public IEquippable GetEquippedItem()
+    {
+        if (equippedWeaponIndex == null)
+        {
+            return null;
+        }
+
+        if (equippedWeaponIndex < 0 || equippedWeaponIndex > equippedItems.Count - 1)
+        {
+            equippedWeaponIndex = null;
+            return null;
+        }
+
+        return equippedItems[equippedWeaponIndex.Value];
     }
 
     public void SetEquippedWeaponIndex(int index)
     {
-        if (index < 0 || index > weapons.Count)
+        if (index < 0 || index >= equippedItems.Count)
         {
             return;
         }
 
-        GetEquippedWeapon()?.gameObject.SetActive(false);
+        GetEquippedItem()?.Item.gameObject.SetActive(false);
 
         equippedWeaponIndex = index;
 
-        GetEquippedWeapon().gameObject.SetActive(true);
+        GetEquippedItem()?.Item.gameObject.SetActive(true);
     }
 
     public void ResetEquippedWeaponIndex()
@@ -105,13 +122,41 @@ public class Inventory : Base
 
     public void CycleWeapon(int amount)
     {
-        int n = weapons.Count;
+        int n = equippedItems.Count;
         if (n == 0)
         {
             return;
         }
 
         SetEquippedWeaponIndex(Utilities.CircularShift(equippedWeaponIndex ?? 0, amount, n));
+    }
+
+    private void Awake()
+    {
+        ResolveContainers();
+    }
+
+    private void Reset()
+    {
+        ResolveContainers();
+    }
+
+    private void OnValidate()
+    {
+        ResolveContainers();
+    }
+
+    private void ResolveContainers()
+    {
+        if (weaponsContainer == null)
+        {
+            weaponsContainer = transform.Find(InventoryType.Weapons.ToString());
+        }
+
+        if (miscContainer == null)
+        {
+            miscContainer = transform.Find(InventoryType.Misc.ToString());
+        }
     }
 }
 

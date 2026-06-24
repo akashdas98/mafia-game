@@ -2,12 +2,12 @@
 
 ## Architecture Overview
 
-This repository is a Unity `2021.3.33f1` 2D oblique/top-down game project.
+This repository is a Unity `6000.3.16f1` 2D oblique/top-down game project.
 
 Top-level layout:
 
 - `Assets/`: Unity runtime/editor assets, scenes, prefabs, scripts, sprites, tilemaps, and samples.
-- `Assets/Scripts/Common/`: shared gameplay infrastructure such as `Base`, `EntityRefs`, input, inventory, target selection, and existing LOS logic.
+- `Assets/Scripts/Common/`: shared gameplay infrastructure such as input, inventory, target selection, and existing LOS logic.
 - `Assets/Scripts/Objects/`: gameplay object controllers for characters, cars, weapons, buildings, and helpers.
 - `Assets/Scripts/ObliqueLoft/`: new custom 2.5D logic-volume LOS/collision system started from `KickoffPrompts/LOS-V3.txt`.
 - `Assets/Scripts/ObliqueLoft/Editor/`: editor-only tooling for authoring Oblique Loft volumes.
@@ -35,16 +35,25 @@ The current major feature is the custom Oblique Loft Collider LOS system.
 
 Vehicle movement:
 
-- `CarController` driving uses a private 16-direction heading bucket state. The car root transform must not be rotated for steering; runtime code keeps root Z rotation at zero.
+- `VehicleMotor` owns car driving state, including the private 16-direction heading bucket. The car root transform must not be rotated for steering; runtime code keeps root Z rotation at zero.
 - Existing car visuals are still 4-directional through the current Animator blend tree. Do not add 16-way car sprites or Oblique Loft sprite/profile binding unless the user explicitly asks.
-- Car movement velocity should come from the current heading bucket, not `transform.right`.
+- Car movement velocity should come from `VehicleMotor`'s current heading bucket, not `transform.right`.
 
 Existing prototype:
 
-- `Assets/Scripts/Common/Target.cs` currently owns target picking and old LOS adjustment.
+- `Assets/Scripts/Common/Target.cs` is now the shooter-side targetter/marker coordinator. Direct click selection lives in `TargetSelectionResolver`; SimpleTarget resolution lives in `SimpleTargetingStrategy`; Oblique Loft targeting/blocking lives in `ObliqueTargetingStrategy`; old depth/hit fallback lives in `LegacyDepthTargetingStrategy`.
 - Existing object targeting uses `EnclosureCollider`, `DepthCollider`, and `HitCollider` child colliders.
-- Entity part lookup uses `EntityRefs`, a dynamic component index on the root entity object. Do not add new fixed universal reference fields for new systems; components should be discovered by type or exposed through focused owner APIs.
-- `GunController` supplies gun position and shoot height.
+- Entity wiring should be explicit. Prefer serialized references for stable owner relationships and narrow owner APIs for cross-component communication. Do not reintroduce fixed universal refs, dynamic entity indexes, or broad service-locator lookup for gameplay wiring.
+- Player input handlers use typed input state objects (`CharacterInputState`, `CarInputState`) rather than string-keyed input dictionaries. Do not add new gameplay reads from `Dictionary<string, float>` input keys. `CharacterInputHandler` is now the compatibility active input handler for player characters and forwards `CharacterInputState` into `PlayerInputRouter`, which routes to local capability interfaces. `CarInputHandler` now forwards `CarInputState` into `VehicleInputRouter`, which routes to `IVehicleInputReceiver`.
+- The old plain C# controller helper layer has been removed. Do not add new `ControllerHelper`, `CharacterControllerHelper`, `GunController`, `ItemsController`, or `InputHandlerHelper` subclasses. New behavior should live on focused `MonoBehaviour` capability components and route input through typed input state plus capability routers.
+- Character movement, animation, and nearby interaction tracking are extracted from broad controller ownership: `CharacterMotor` owns movement vector, speed, Rigidbody2D velocity, kinematic switching, and last-facing state; `CharacterAnimationController` ticks itself, invokes ordered animation adapters, and writes through `AnimationParameterWriter` to `AnimatorParameterRelay`; the relay broadcasts shared parameters to independent visible body/clothing child animators; `CharacterMovementAnimationAdapter` reads `CharacterMotor`; `CharacterAimAnimationAdapter` reads `WeaponUser` when enabled; `CharacterInteractor` owns nearby `Interactable` tracking and interaction execution. The old `CharacterController` and `CarController` shells have been removed from the active runtime path; do not reintroduce broad controller shells for new behavior.
+- For new gameplay-driven animation expansion, follow `Docs/AnimationAdapterArchitecture.md`: gameplay components expose gameplay state only, component-specific animation adapters translate that state into animation parameters, and entity-specific animation controllers own the final writes to their entity-specific animator target such as the current `AnimatorParameterRelay` broadcast path for layered characters. Do not make gameplay components know animator parameter names.
+- Layered character animation shares parameters, not forced state/time. Do not add a master Animator on the `Sprites` object, do not reintroduce `CharacterMasterAnimator`, `LayeredAnimatorSync`, or `MasterAnimationPreviewProbe`, and do not force all visual layer animators to mirror one common state/time. Each child layer Animator should decide independently how to respond to the shared parameter stream.
+- Character Builder animation slots and override controllers are layer-scoped. The shared `Assets/Animations/Character/Base/LayerAnimatorTemplate.controller` is only a seed/fallback; generated layer templates live under `Assets/Animations/Character/Base/Templates/`, generated slot placeholders live under `Assets/Animations/Character/Base/Slots/<part-group>/`, and generated part override controllers should use the template for their own `CharacterPartGroup`.
+- Weapon and inventory use are component-owned: `WeaponUser` owns equipped gun tracking, aim origin/visual gun point handling, trigger forwarding, and shoot-height/distance tuning; `InventoryUser` owns pickup/drop/cycle commands. `Inventory` owns inventory state and item container references and lives on the reusable `Inventory` child/prefab, not on the character root. `PlayerInputRouter` has explicit references to character capability components, and `Item` pickup resolves the receiver from the interacting character hierarchy. `Assets/Prefabs/Character/Character.prefab` is wired with `PlayerInputRouter`, and `Assets/Prefabs/Vehicle/Car V2.prefab` is wired with `VehicleInputRouter`. The old gun/item/input helper adapters have been removed after Unity validation.
+- Inventory equip slots are capability-based: `Inventory` and `InventoryUser` classify equip-capable items through `IEquippable`, with `Weapon` as the current adapter. Do not add new inventory checks that depend on `item is Weapon`; weapon-specific behavior belongs in `WeaponUser` or weapon/fire-mode components.
+- Gun stats and trigger behavior are component/config driven: `GunStats` stores current serialized gun tuning, and `Gun` delegates trigger behavior through `GunFireMode` components such as `SemiAutoFireMode` and `FullAutoFireMode`. Keep old weapon subclasses as compatibility adapters unless prefab migration explicitly removes them.
+- `WeaponUser` supplies the logical aim origin and shoot height to `Target`. `Target` can reference an authored stable `Aim Origin` transform for the real shot line and an animation-frame-specific `Gun Point` transform for visual weapon placement; do not derive logic rays from the visual gun point. `Assets/Prefabs/AimTarget.prefab` includes `Marker`, `AimOrigin`, and `GunPoint` children; the `Target` root remains anchored to the character and only the marker sprite moves to the resolved target point.
 
 New system:
 
@@ -52,8 +61,10 @@ New system:
 - Editor-only authoring code must stay under an `Editor` folder or editor assembly boundary.
 - The visual sprite is not collision truth. Collision truth is generated 3D logic geometry.
 - Oblique Loft LOS is now scoped to simple mostly-static blockers/direct static targets such as walls, buildings, and trees. Complex moving objects such as cars should be ignored by LOS unless the user explicitly revisits that decision.
-- Actual shootable targets use `SimpleTarget`: a flat 2D current-frame hit polygon plus a ground/depth polygon. The selected character and any character that crosses the shot line are resolved by the same simple-target query.
+- Actual shootable targets use `SimpleTarget`: a flat 2D current-frame hit polygon plus an authored horizontal ground reference line height. They do not require a separate ground/depth polygon. The selected character and any character whose hit face crosses the shot line are resolved by the same simple-target query.
+- SimpleTarget sprite auto-detect is editor/profile-assisted, not a broad runtime remeshing system. The parent `SimpleTarget` owns the combined `Hit Collider`; child `SimpleTargetLayer` components under `Sprites` store per-sprite alpha-outline profiles and expose layer-local auto-detect buttons. The parent and child buttons trace exact opaque alpha-pixel outlines from active child `SpriteRenderer` sprites, apply matching layer profiles into the normal `Hit Collider`, and then users can manually edit the collider. It must not require separate per-sprite shape authoring.
 - Oblique Loft collider shapes are authored directly on the object. Do not bind Oblique Loft collision profiles to animation frames or `SpriteRenderer.sprite`.
+- Oblique Loft sprite/frame profile authoring is optional and editor-assisted. Prefer placing one `ObliqueLoftCollider` component directly on the same GameObject as its single target `SpriteRenderer` so the normal collider inspector stays visible while Unity's Animation window previews/scrubs that sprite object. When `Use Sprite Frame Profiles` is enabled, scrubbing to a new sprite saves the previous sprite's current shape, loads an existing shape for the new sprite when present, or creates a new profile by copying the last live shape when missing; normal Scene/inspector edits are saved to the current sprite profile automatically. The `Target Sprite Renderer` field remains for legacy/separate-object setups. Do not auto-generate Oblique Loft volumes from sprite outlines. If layered Oblique Loft authoring is ever needed, use multiple separate `ObliqueLoftCollider` components, one per layer object.
 - `ObliqueLoftCollider` is drop-in: it requires and synchronizes a non-trigger `PolygonCollider2D` to the authored footprint so the ground footprint is solid and selectable. Do not hand-author a different physical footprint collider for the same loft object.
 - Position, rotation, and scale are transform data applied geometrically to the already-authored volume. Rotation must rotate the footprint, slices, faces, and normals as a whole; it must not recalculate front/back edges or reinterpret slice depth after authoring.
 - A shot is a 3D logic ray from shooter ground position plus shoot height to target ground position plus aimed target height.
@@ -68,7 +79,7 @@ New system:
 - Slice polygons should stay simple/non-self-intersecting during editor edits. If a dragged or nudged slice point causes self-intersection, the editor repairs only the selected slice by reversing the stored connection-order segment between crossing edges. This changes which dots connect to which other dots; it must not move point coordinates, swap point identities in `EditablePoints`, or reorder other slices.
 - Each slice must have two distinct bottom connector points. They do not have to be neighboring polygon points; runtime canonicalization chooses the higher-profile path between them so generated faces do not drop to zero when a bottom edge has inserted/intermediate points.
 - Oblique shot/ray debug for player aiming is controlled by the targetter's `Target.drawObliqueLoftDebug` switch. Target and obstacle objects should only need `ObliqueLoftCollider` to participate in new LOS tests.
-- `Target.cs` first resolves `SimpleTarget` candidates along the intended ground shot line, sorted by distance. Oblique Loft colliders are tested as static blockers before each simple target candidate and before the final intended endpoint. Static `ObliqueLoftCollider` objects can be selected either through their synchronized footprint collider or through projected generated faces under the cursor. Direct targeting maps the cursor through the selected loft's projected generated faces, prefers overlapping projected faces that face the shooter, then extends that aim ray through the loft bounds and raycasts all valid loft colliders, including the selected loft. The closest generated face on that line becomes the hit, so other colliders or nearer faces of the same selected object can occlude farther faces.
+- `Target.cs` first resolves `SimpleTarget` candidates along the intended visual shot line, sorted by derived ground distance. Oblique Loft colliders are tested as static blockers before each simple target candidate and before the final intended endpoint. Static `ObliqueLoftCollider` objects can be selected either through their synchronized footprint collider or through projected generated faces under the cursor. Direct targeting maps the cursor through the selected loft's projected generated faces, prefers overlapping projected faces that face the shooter, then extends that aim ray through the loft bounds and raycasts all valid loft colliders, including the selected loft. The closest generated face on that line becomes the hit, so other colliders or nearer faces of the same selected object can occlude farther faces.
 
 Transition rule:
 
@@ -105,7 +116,7 @@ Scene visualization projects logic `(x, y, z)` to Unity scene `(x, z + y, object
 ## Tooling Rules
 
 - Use `.\tools\unity.ps1` for Unity command-line work in this repository.
-- Unity editor path currently detected: `D:\Program Files\Unity\2021.3.33f1\Editor\Unity.exe`.
+- Unity project version currently detected from `ProjectSettings/ProjectVersion.txt`: `6000.3.16f1`.
 - The wrapper supports `version`, `open`, `refresh`, `test-editmode`, and `test-playmode`.
 - `.NET SDK 8.0.421` is installed at `C:\Program Files\dotnet\dotnet.exe`.
 - If a shell cannot find `dotnet`, refresh PATH from machine/user environment variables or open a new terminal.
@@ -125,6 +136,8 @@ Scene visualization projects logic `(x, y, z)` to Unity scene `(x, z + y, object
 After every meaningful change:
 
 - Update `CONTEXT.md` with what changed, why it changed, current status, verification, known issues, and next steps.
+- Keep `CONTEXT.md` compact. It is a current working ledger, not a full historical changelog.
+- Keep `Recent Changes` to the latest high-signal entries only, generally around 5-10 items, and consolidate or remove older entries once their facts are represented in the status ledger, known issues, next steps, durable docs, or Git history.
 - Update `AGENTS.md` if architecture boundaries, workflow rules, dependencies, tools, or feature guidance changed.
 - Update the relevant feature document under `Docs/` when a feature behavior, setup step, authoring workflow, runtime API, or user-facing usage changes. This is feature documentation, not progress tracking.
 - Keep the `Status Ledger`, `Active Gaps`, `Known Issues`, `Next Recommended Steps`, and `Recent Changes` in `CONTEXT.md` accurate.
@@ -133,7 +146,11 @@ A meaningful change includes a new feature, changed workflow, changed dependency
 
 ## Git Notes
 
-Git may report this repository as having dubious ownership for the current shell user. Do not modify global Git configuration unless the user asks for it.
+Git safe-directory has been configured for this exact repository path for the current shell user:
+
+`D:/Projects/Unity/Mafia Game/MafiaGame`
+
+Do not use `takeown`, `icacls`, `chown`, or other ownership/ACL changes to fix Git access unless the user explicitly asks. The safe-directory entry is the intended non-ownership-changing fix.
 
 ## Do Not
 

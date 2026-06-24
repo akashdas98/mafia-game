@@ -41,6 +41,32 @@ public class ObliqueLoftSlice
     this.depth = depth;
   }
 
+  public ObliqueLoftSlice(ObliqueLoftSlice source)
+  {
+    CopyFrom(source);
+  }
+
+  public void CopyFrom(ObliqueLoftSlice source)
+  {
+    name = source != null ? source.Name : "Slice";
+    depth = source != null ? source.Depth : 0f;
+    points.Clear();
+    pointOrder.Clear();
+    if (source == null)
+    {
+      return;
+    }
+
+    points.AddRange(source.Points);
+    pointOrder.AddRange(source.PointOrder);
+    EnsurePointOrder();
+  }
+
+  public ObliqueLoftSlice Clone()
+  {
+    return new ObliqueLoftSlice(this);
+  }
+
   public void SetName(string value)
   {
     name = value;
@@ -84,6 +110,7 @@ public class ObliqueLoftSlice
   public void InsertConnectionPointAfter(int orderIndex, int pointIndex)
   {
     EnsurePointOrder();
+    pointOrder.RemoveAll(index => index == pointIndex);
     pointOrder.Insert(Mathf.Clamp(orderIndex + 1, 0, pointOrder.Count), pointIndex);
   }
 

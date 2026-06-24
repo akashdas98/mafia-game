@@ -3,6 +3,74 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
+[InitializeOnLoad]
+public static class ObliqueLoftTargetRendererSceneBridge
+{
+  private static readonly Dictionary<ObliqueLoftCollider, ObliqueLoftColliderEditor> Editors = new Dictionary<ObliqueLoftCollider, ObliqueLoftColliderEditor>();
+
+  static ObliqueLoftTargetRendererSceneBridge()
+  {
+    SceneView.duringSceneGui -= DrawSelectedTargetRendererCollider;
+    SceneView.duringSceneGui += DrawSelectedTargetRendererCollider;
+  }
+
+  private static void DrawSelectedTargetRendererCollider(SceneView sceneView)
+  {
+    if (Selection.activeGameObject == null)
+    {
+      return;
+    }
+
+    ObliqueLoftCollider[] colliders = Resources.FindObjectsOfTypeAll<ObliqueLoftCollider>();
+    for (int i = 0; i < colliders.Length; i++)
+    {
+      ObliqueLoftCollider collider = colliders[i];
+      if (!ShouldDrawForSelection(collider, Selection.activeGameObject.transform))
+      {
+        continue;
+      }
+
+      ObliqueLoftColliderEditor editor = GetOrCreateEditor(collider);
+      if (editor != null)
+      {
+        editor.DrawSceneGUI();
+      }
+    }
+  }
+
+  private static bool ShouldDrawForSelection(ObliqueLoftCollider collider, Transform selectedTransform)
+  {
+    return collider != null &&
+      collider.isActiveAndEnabled &&
+      !EditorUtility.IsPersistent(collider) &&
+      collider.gameObject.scene.IsValid() &&
+      collider.gameObject.scene.isLoaded &&
+      Selection.activeGameObject != collider.gameObject &&
+      collider.IsTargetSpriteRendererSelection(selectedTransform);
+  }
+
+  private static ObliqueLoftColliderEditor GetOrCreateEditor(ObliqueLoftCollider collider)
+  {
+    if (collider == null)
+    {
+      return null;
+    }
+
+    if (Editors.TryGetValue(collider, out ObliqueLoftColliderEditor editor) && editor != null)
+    {
+      return editor;
+    }
+
+    editor = Editor.CreateEditor(collider, typeof(ObliqueLoftColliderEditor)) as ObliqueLoftColliderEditor;
+    if (editor != null)
+    {
+      Editors[collider] = editor;
+    }
+
+    return editor;
+  }
+}
+
 [CustomEditor(typeof(ObliqueLoftCollider))]
 public class ObliqueLoftColliderEditor : Editor
 {
@@ -45,11 +113,15 @@ public class ObliqueLoftColliderEditor : Editor
   private bool isNormalizingSlices;
   private SerializedProperty useInRaycastsProperty;
   private SerializedProperty showGizmosProperty;
+  private SerializedProperty targetSpriteRendererProperty;
+  private SerializedProperty useSpriteFrameProfilesProperty;
 
   private void OnEnable()
   {
     useInRaycastsProperty = serializedObject.FindProperty("useInRaycasts");
     showGizmosProperty = serializedObject.FindProperty("showGizmos");
+    targetSpriteRendererProperty = serializedObject.FindProperty("targetSpriteRenderer");
+    useSpriteFrameProfilesProperty = serializedObject.FindProperty("useSpriteFrameProfiles");
   }
 
   public override void OnInspectorGUI()
@@ -60,7 +132,13 @@ public class ObliqueLoftColliderEditor : Editor
     serializedObject.Update();
     EditorGUILayout.PropertyField(useInRaycastsProperty);
     EditorGUILayout.PropertyField(showGizmosProperty, new GUIContent("Show Generated Face Gizmos"));
+    DrawSpriteFrameProfileControls(collider);
     serializedObject.ApplyModifiedProperties();
+
+    if (collider.SyncCurrentSpriteProfileForAuthoring())
+    {
+      EditorUtility.SetDirty(collider);
+    }
 
     EditorGUILayout.Space();
     EditorGUILayout.LabelField("Collider Data", EditorStyles.boldLabel);
@@ -130,12 +208,27 @@ public class ObliqueLoftColliderEditor : Editor
       EditorGUILayout.HelpBox(string.Join("\n", collider.ValidationErrors), MessageType.Error);
     }
 
+    if (collider.UseSpriteFrameProfiles)
+    {
+      collider.CaptureCurrentSpriteProfile();
+    }
+
     EditorGUILayout.HelpBox("Click points to select and drag them. Arrow keys nudge the selected point; Shift+Arrow nudges 10x. Click an edge to insert a point. Right-click a point for options. Delete removes the selected point. Footprint point count is independent; slice add/delete is synchronized across all slices.", MessageType.Info);
   }
 
   private void OnSceneGUI()
   {
+    DrawSceneGUI();
+  }
+
+  internal void DrawSceneGUI()
+  {
     ObliqueLoftCollider collider = (ObliqueLoftCollider)target;
+    if (collider.SyncCurrentSpriteProfileForAuthoring())
+    {
+      EditorUtility.SetDirty(collider);
+    }
+
     NormalizeSlicesToFootprint(collider, false);
     Event current = Event.current;
 
@@ -151,6 +244,7 @@ public class ObliqueLoftColliderEditor : Editor
       DrawFaceLabels(collider);
     }
 
+    DrawSceneModeOverlay(collider);
     DrawFootprint(collider, editMode == EditMode.Footprint);
     DrawSlices(collider, editMode == EditMode.Slice);
 
@@ -158,6 +252,97 @@ public class ObliqueLoftColliderEditor : Editor
     {
       HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
     }
+
+    if (collider.UseSpriteFrameProfiles)
+    {
+      collider.CaptureCurrentSpriteProfile();
+    }
+  }
+
+  private void DrawSceneModeOverlay(ObliqueLoftCollider collider)
+  {
+    Handles.BeginGUI();
+    GUILayout.BeginArea(new Rect(12f, 12f, 220f, 92f), GUI.skin.window);
+    GUILayout.Label("Oblique Loft");
+    GUILayout.BeginHorizontal();
+    if (GUILayout.Toggle(editMode == EditMode.Footprint, "Footprint", "Button"))
+    {
+      editMode = EditMode.Footprint;
+    }
+    else if (editMode == EditMode.Footprint)
+    {
+      editMode = EditMode.None;
+    }
+
+    if (GUILayout.Toggle(editMode == EditMode.Slice, "Slice", "Button"))
+    {
+      editMode = EditMode.Slice;
+    }
+    else if (editMode == EditMode.Slice)
+    {
+      editMode = EditMode.None;
+    }
+    GUILayout.EndHorizontal();
+
+    if (collider.EditableSlices.Count > 0)
+    {
+      selectedSliceIndex = Mathf.Clamp(selectedSliceIndex, 0, collider.EditableSlices.Count - 1);
+      GUILayout.BeginHorizontal();
+      if (GUILayout.Button("<", GUILayout.Width(32f)))
+      {
+        selectedSliceIndex = Mathf.Max(0, selectedSliceIndex - 1);
+      }
+      GUILayout.Label("Slice " + selectedSliceIndex, GUILayout.Width(76f));
+      if (GUILayout.Button(">", GUILayout.Width(32f)))
+      {
+        selectedSliceIndex = Mathf.Min(collider.EditableSlices.Count - 1, selectedSliceIndex + 1);
+      }
+      GUILayout.EndHorizontal();
+    }
+
+    GUILayout.EndArea();
+    Handles.EndGUI();
+  }
+
+  private void DrawSpriteFrameProfileControls(ObliqueLoftCollider collider)
+  {
+    EditorGUILayout.Space();
+    EditorGUILayout.LabelField("Sprite Frame Profiles", EditorStyles.boldLabel);
+    EditorGUILayout.PropertyField(useSpriteFrameProfilesProperty);
+    EditorGUILayout.PropertyField(targetSpriteRendererProperty);
+
+    if (targetSpriteRendererProperty.objectReferenceValue == null)
+    {
+      collider.ResolveTargetSpriteRenderer();
+      serializedObject.Update();
+    }
+
+    if (!useSpriteFrameProfilesProperty.boolValue)
+    {
+      return;
+    }
+
+    if (collider.TryGetCurrentProfileKey(out SpriteRenderer renderer, out Sprite sprite, out string _))
+    {
+      EditorGUILayout.LabelField("Target Renderer", renderer != null ? renderer.name : "None");
+      EditorGUILayout.LabelField("Current Sprite", sprite != null ? sprite.name : "None");
+      EditorGUILayout.LabelField("Current Profile", collider.TryGetCurrentSpriteProfile(out _) ? "Exists" : "Will Auto-Create");
+    }
+    else
+    {
+      EditorGUILayout.HelpBox("Assign a Target Sprite Renderer with a current sprite. The collider also tries to auto-assign one from self, parent, or children.", MessageType.Warning);
+    }
+
+    EditorGUILayout.HelpBox("When enabled, scrubbing to a sprite frame automatically loads its stored shape. If that sprite has no shape yet, it copies the last live shape. Scene and inspector edits are saved to the current sprite frame automatically.", MessageType.Info);
+
+    EditorGUILayout.BeginHorizontal();
+    if (GUILayout.Button("Delete Current Sprite Profile"))
+    {
+      Undo.RecordObject(collider, "Delete Oblique Loft Sprite Frame Profile");
+      collider.DeleteCurrentSpriteProfile();
+      EditorUtility.SetDirty(collider);
+    }
+    EditorGUILayout.EndHorizontal();
   }
 
   private void DrawSliceControls(ObliqueLoftCollider collider)
@@ -524,7 +709,7 @@ public class ObliqueLoftColliderEditor : Editor
     float size = HandleUtility.GetHandleSize(position) * 0.08f;
 
     EditorGUI.BeginChangeCheck();
-    Vector3 moved = Handles.FreeMoveHandle(position, Quaternion.identity, size, Vector3.zero, Handles.RectangleHandleCap);
+    var fmh_527_54_639154757080679904 = Quaternion.identity; Vector3 moved = Handles.FreeMoveHandle(position, size, Vector3.zero, Handles.RectangleHandleCap);
     if (!EditorGUI.EndChangeCheck())
     {
       return;
@@ -635,7 +820,7 @@ public class ObliqueLoftColliderEditor : Editor
 
     float size = HandleUtility.GetHandleSize(scenePoint) * (selected ? 0.075f : 0.055f);
     EditorGUI.BeginChangeCheck();
-    Vector3 moved = Handles.FreeMoveHandle(scenePoint, Quaternion.identity, size, Vector3.zero, Handles.DotHandleCap);
+    var fmh_638_56_639154757080690739 = Quaternion.identity; Vector3 moved = Handles.FreeMoveHandle(scenePoint, size, Vector3.zero, Handles.DotHandleCap);
     if (EditorGUI.EndChangeCheck())
     {
       SelectFootprintPoint(collider, pointIndex);
@@ -658,7 +843,7 @@ public class ObliqueLoftColliderEditor : Editor
 
     float size = HandleUtility.GetHandleSize(scenePoint) * (selected ? 0.075f : 0.055f);
     EditorGUI.BeginChangeCheck();
-    Vector3 moved = Handles.FreeMoveHandle(scenePoint, Quaternion.identity, size, Vector3.zero, Handles.DotHandleCap);
+    var fmh_661_56_639154757080692620 = Quaternion.identity; Vector3 moved = Handles.FreeMoveHandle(scenePoint, size, Vector3.zero, Handles.DotHandleCap);
     if (EditorGUI.EndChangeCheck())
     {
       SelectSlicePoint(sliceIndex, pointIndex);
@@ -808,20 +993,29 @@ public class ObliqueLoftColliderEditor : Editor
 
   private void InsertSlicePointAfterEdge(ObliqueLoftCollider collider, int edgeIndex, float t)
   {
-    ObliqueLoftSlice reference = collider.EditableSlices.FirstOrDefault(slice => slice.EditablePoints.Count >= 2);
-    if (reference == null || reference.EditablePoints.Count < 2)
+    if (selectedSliceIndex < 0 || selectedSliceIndex >= collider.EditableSlices.Count)
     {
       return;
     }
 
-    reference.EnsurePointOrder();
-    int pointIndex = reference.GetConnectionPointIndex(edgeIndex);
-    int nextIndex = reference.GetConnectionPointIndex((edgeIndex + 1) % reference.PointOrder.Count);
+    ObliqueLoftSlice selectedSlice = collider.EditableSlices[selectedSliceIndex];
+    selectedSlice.EnsurePointOrder();
+    if (selectedSlice.EditablePoints.Count < 2 || edgeIndex < 0 || edgeIndex >= selectedSlice.PointOrder.Count)
+    {
+      return;
+    }
 
     Undo.RecordObject(collider, "Insert Slice Point In All Slices");
     foreach (ObliqueLoftSlice slice in collider.EditableSlices)
     {
       slice.EnsurePointOrder();
+      if (slice.EditablePoints.Count < 2 || edgeIndex >= slice.PointOrder.Count)
+      {
+        continue;
+      }
+
+      int pointIndex = slice.GetConnectionPointIndex(edgeIndex);
+      int nextIndex = slice.GetConnectionPointIndex((edgeIndex + 1) % slice.PointOrder.Count);
       Vector2 a = slice.EditablePoints[pointIndex];
       Vector2 b = slice.EditablePoints[nextIndex];
       int insertedIndex = slice.EditablePoints.Count;
@@ -1317,6 +1511,11 @@ public class ObliqueLoftColliderEditor : Editor
   {
     foreach (ObliqueLoftFace face in collider.GeneratedFaces)
     {
+      if (!IsVisibleGeneratedFace(collider, face))
+      {
+        continue;
+      }
+
       Vector3 center = Vector3.zero;
       foreach (Vector3 vertex in face.Vertices)
       {
@@ -1332,7 +1531,7 @@ public class ObliqueLoftColliderEditor : Editor
   {
     foreach (ObliqueLoftFace face in collider.GeneratedFaces)
     {
-      if (face.Vertices.Count < 3)
+      if (face.Vertices.Count < 3 || !IsVisibleGeneratedFace(collider, face))
       {
         continue;
       }
@@ -1343,7 +1542,7 @@ public class ObliqueLoftColliderEditor : Editor
         scenePoints[i] = collider.LogicWorldToScene(collider.LocalToLogicWorld(face.Vertices[i]));
       }
 
-      Handles.color = GetNormalMapFaceColor(face.Normal);
+      Handles.color = GetSurfaceHueFaceColor(face);
       for (int i = 1; i < scenePoints.Length - 1; i++)
       {
         Handles.DrawAAConvexPolygon(scenePoints[0], scenePoints[i], scenePoints[i + 1]);
@@ -1351,14 +1550,53 @@ public class ObliqueLoftColliderEditor : Editor
     }
   }
 
-  private Color GetNormalMapFaceColor(Vector3 normal)
+  private bool IsVisibleGeneratedFace(ObliqueLoftCollider collider, ObliqueLoftFace face)
   {
-    Vector3 normalized = normal == Vector3.zero ? Vector3.zero : normal.normalized;
-    return new Color(
-      normalized.x * 0.5f + 0.5f,
-      normalized.y * 0.5f + 0.5f,
-      normalized.z * 0.5f + 0.5f,
-      0.34f);
+    if (face == null || face.SurfaceType == ObliqueSurfaceType.Bottom)
+    {
+      return false;
+    }
+
+    Vector3 normal = collider.LocalDirectionToLogicWorld(face.Normal);
+    if (normal == Vector3.zero)
+    {
+      return false;
+    }
+
+    Vector3 obliqueViewDirection = new Vector3(0f, 1f, -1f).normalized;
+    return Vector3.Dot(normal.normalized, obliqueViewDirection) > 0.001f;
+  }
+
+  private Color GetSurfaceHueFaceColor(ObliqueLoftFace face)
+  {
+    float hue;
+    switch (face.SurfaceType)
+    {
+      case ObliqueSurfaceType.Top:
+      case ObliqueSurfaceType.SlopedTop:
+        hue = 0.17f;
+        break;
+      case ObliqueSurfaceType.Front:
+        hue = 0.56f;
+        break;
+      case ObliqueSurfaceType.Back:
+        hue = 0.78f;
+        break;
+      case ObliqueSurfaceType.Side:
+        hue = Mathf.Repeat(0.64f + face.FaceIndex * 0.09f, 1f);
+        break;
+      case ObliqueSurfaceType.Bottom:
+      case ObliqueSurfaceType.SlopedBottom:
+        hue = 0.02f;
+        break;
+      default:
+        hue = 0.42f;
+        break;
+    }
+
+    Color color = Color.HSVToRGB(hue, 0.76f, 1f);
+    color.a = 0.3f;
+    return color;
   }
 
   private Vector3 FootprintPointToScene(ObliqueLoftCollider collider, Vector2 point)

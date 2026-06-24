@@ -9,11 +9,26 @@ public class BuildingFadeOut : MonoBehaviour
   [SerializeField] private Collider2D buildingCollider;
 
   private CinemachineVirtualCamera cinemachineCam;
-  private Camera mainCamera;
   private float fadeLength, colliderFadePoint;
 
   void Start()
   {
+    if (buildingCollider == null)
+    {
+      buildingCollider = GetComponent<Collider2D>();
+    }
+
+    if (spriteRenderer == null)
+    {
+      spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+    }
+
+    if (buildingCollider == null || spriteRenderer == null)
+    {
+      enabled = false;
+      return;
+    }
+
     float bottomOfCollider = buildingCollider.bounds.min.y;
     float topOfCollider = buildingCollider.bounds.max.y;
     fadeLength = (topOfCollider - bottomOfCollider);
@@ -24,7 +39,6 @@ public class BuildingFadeOut : MonoBehaviour
     {
       cinemachineCam = cinemachineCamObject.GetComponent<CinemachineVirtualCamera>();
     }
-    mainCamera = Camera.main;
   }
 
   void Update()
@@ -34,6 +48,11 @@ public class BuildingFadeOut : MonoBehaviour
 
   void AdjustOpacityBasedOnCameraPosition()
   {
+    if (cinemachineCam == null || cinemachineCam.Follow == null)
+    {
+      return;
+    }
+
     Vector3 playerPosition = cinemachineCam.Follow.position;
     float playerViewportPosition = playerPosition.y - 2.5f;
 

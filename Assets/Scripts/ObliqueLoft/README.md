@@ -6,13 +6,13 @@ This folder contains the transition-friendly v1 of the custom 2.5D LOS/collision
 
 - `Assets/Scripts/Common/Target.cs` currently owns target selection and LOS adjustment.
 - Existing targeting uses `EnclosureCollider`, `DepthCollider`, and `HitCollider` child objects.
-- `GunController` supplies the current gun position and shoot height.
+- `WeaponUser` supplies the logical aim origin and shoot height. `Target` can reference a stable authored `Aim Origin` transform for real shot lines and a frame-specific `Gun Point` transform for visual weapon placement. `Assets/Prefabs/AimTarget.prefab` includes `Marker`, `AimOrigin`, and `GunPoint` children; the root stays anchored to the character and only the marker sprite moves to the resolved target point. Detailed setup is documented in `Docs/AimTarget.md`.
 - The existing gameplay path is preserved. The new static-blocker system is available beside it through `ObliqueLoftLos`.
 - `Target.cs` owns the opt-in gameplay bridge and Oblique Loft debug drawing. Static blocker/direct-target objects need `ObliqueLoftCollider`; shootable characters use `SimpleTarget`.
 
 ## Runtime Use
 
-Add `Assets/Prefabs/ObliqueLoftCollider.prefab` or add `ObliqueLoftCollider` to any simple mostly-static object that needs custom 3D logic collision. The component keeps a non-trigger `PolygonCollider2D` synchronized to its footprint, so the footprint is also the solid/selectable 2D ground collider. Keep the old `DepthCollider` and `HitCollider` on existing prefabs while migrating so current gameplay remains unchanged.
+Add `ObliqueLoftCollider` directly to any simple mostly-static sprite/blocker object that needs custom 3D logic collision. The component is available from `Add Component > Oblique Loft > Oblique Loft Collider`. It keeps a non-trigger `PolygonCollider2D` synchronized to its footprint, so the footprint is also the solid/selectable 2D ground collider. Keep the old `DepthCollider` and `HitCollider` on existing prefabs while migrating so current gameplay remains unchanged.
 
 The compatibility entry points are:
 
@@ -28,15 +28,17 @@ The logic ray uses:
 - `Vector3.y`: height
 - `Vector3.z`: ground/depth Y from the 2D scene
 
+For character targetters, the ray starts from `Target.Aim Origin` when assigned. `Target.Gun Point` is a visual placement point that can be moved by animation frames; it does not define the real shot line. The distance from `Aim Origin` to `Gun Point` is treated as a minimum targeting radius.
+
 Scene authoring projects logic `(x, y, z)` onto visible 2D as `(x, z + y)`. Local X/depth are transformed through the object's 2D local X/Y basis into logic X/Z, and logic height uses transform Y scale. Unity object Z and transform Z scale are only drawing/sorting concerns; they are not part of logic height or logic depth. Rotation on Z is a geometric rotation of the already-authored volume; it does not recalculate front/back or slice layout.
 
 Oblique Loft collider shapes are authored directly on static blocker/direct-target objects. There is no sprite-frame or `SpriteRenderer.sprite` binding for Oblique Loft colliders.
 
-Shootable characters should use `Assets/Prefabs/SimpleTarget.prefab` or `Assets/Scripts/Common/SimpleTarget.cs`. A `SimpleTarget` has a ground/depth polygon and a flat hit polygon. The prefab includes adjustable `GroundCollider` and `HitCollider` child polygons already assigned to the component. `Target.cs` resolves the selected character and any intervening character with the same distance-sorted simple-target query. Static Oblique Loft objects can be selected directly through their synchronized footprint collider or through a projected generated face under the cursor. Direct targeting maps the cursor through the selected loft's projected generated faces, prefers overlapping face projections that face the shooter, then falls back to footprint inference if needed. The aim line is extended through the loft bounds so the closest generated face on the line is hit. Oblique Loft still checks closer static blockers before that direct target, and nearer faces of the same selected loft can occlude farther faces.
+Shootable characters should use `Assets/Prefabs/SimpleTarget.prefab` or `Assets/Scripts/Common/SimpleTarget.cs`. A `SimpleTarget` is a flat 2D hit polygon plus an authored horizontal ground reference line height and does not require a separate ground/depth polygon. The prefab includes an adjustable `HitCollider` child polygon already assigned to the component. `Target.cs` resolves the selected character and any intervening character with the same distance-sorted simple-target query. Static Oblique Loft objects can be selected directly through their synchronized footprint collider or through a projected generated face under the cursor. Direct targeting maps the cursor through the selected loft's projected generated faces, prefers overlapping face projections that face the shooter, then falls back to footprint inference if needed. The aim line is extended through the loft bounds so the closest generated face on the line is hit. Oblique Loft still checks closer static blockers before that direct target, and nearer faces of the same selected loft can occlude farther faces.
 
 ## Authoring V1
 
-1. Add `Assets/Prefabs/ObliqueLoftCollider.prefab` or add an `ObliqueLoftCollider` component.
+1. Add an `ObliqueLoftCollider` component directly to the sprite/blocker GameObject.
 2. Use `Reset Box` in the custom inspector for a valid starting volume.
 3. Edit the footprint and slice points in Scene view.
 4. Use `Slice Depth` as the Y-depth on the footprint that the slice belongs to. Slice point Y is its editable visual/local Y in the 2D Scene view; runtime height is derived from `slicePoint.y - Slice Depth`. Slice connectors stem from two distinct lowest slice points: farthest-left/right among the lowest-Y tie set, or the unique lowest point plus the next-lowest point. Middle slice connector handles drag along valid non-horizontal footprint edges. Front/back connectors are locked to the bottom/top of the footprint.
@@ -56,7 +58,7 @@ Generated faces are wound outward from the generated volume center before classi
 
 - Start Oblique Loft migration with simple static blockers that already have `DepthCollider` and `HitCollider` children.
 - Create an `ObliqueLoftCollider` volume that matches the same logical ground footprint and height.
-- Add `Assets/Prefabs/SimpleTarget.prefab` to characters and adjust its `GroundCollider` / `HitCollider` child polygons, or add `SimpleTarget` manually and assign current-frame ground and hit polygons.
+- Add `Assets/Prefabs/SimpleTarget.prefab` to characters, adjust its `HitCollider` child polygon, and set `Ground Line Local Y`, or add `SimpleTarget` manually and assign the current-frame hit polygon.
 - Compare old debug lines from `Target.cs` with the targetter-owned Oblique Loft debug ray before routing gameplay calls fully to `ObliqueLoftLos`.
 - With `useSimpleTargeting` enabled, `Target.GetActualTarget` uses one simple-target resolver for the selected target and characters in the way. With `useObliqueLoftLos` also enabled, valid static loft colliders can block before each simple target or before the intended endpoint. A selected loft collider can also be hit directly by selecting/aiming at the selected loft's projected generated faces and extending that aim line through its logic bounds; other lofts still block first if closer, and the selected loft's own nearer faces can block farther faces. Blocked Oblique hits use a faded green object highlight and an extra green hit-face overlay.
 - Do not migrate cars or complex moving objects to Oblique Loft for normal LOS unless the design changes again.

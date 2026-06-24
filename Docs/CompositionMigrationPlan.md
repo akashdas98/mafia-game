@@ -6,36 +6,29 @@ This document describes a staged migration from the current inheritance-heavy co
 
 ### Controller And Input Stack
 
-Current shape:
+Original shape:
 
-- `Base : MonoBehaviour`
-- `Controller : Base`
+- `Controller : MonoBehaviour`
 - `CharacterController : Controller`
 - `CarController : Controller`
-- `InputHandler : Base`
+- `InputHandler : MonoBehaviour`
 - `CharacterInputHandler : InputHandler`
 - `CarInputHandler : InputHandler`
-- `ControllerHelper<T> where T : Controller`
-- `CharacterControllerHelper : ControllerHelper<CharacterController>`
-- `GunController : CharacterControllerHelper`
-- `ItemsController : CharacterControllerHelper`
-- `InputHandlerHelper<T> where T : InputHandler`
-- `CharacterInputHandlerHelper : InputHandlerHelper<CharacterInputHandler>`
-- `GunInputHandler : CharacterInputHandlerHelper`
-- `ItemsInputHandler : CharacterInputHandlerHelper`
+- Old controller/input helper classes have been removed after routing moved to focused capability components and `PlayerInputRouter` / `VehicleInputRouter`.
+- `CharacterController` and `CarController` have now been removed from the active runtime path.
 
 Scaling risk:
 
-- Features become tied to one owner type, such as `GunController` requiring `CharacterController`.
+- Features become tied to one owner type when behavior is hidden behind owner-specific helpers.
 - Adding a new controllable entity tends to create a parallel set of base/helper classes.
-- Helpers are plain C# objects with manual lifecycle forwarding, so their execution order and ownership are implicit.
+- Plain C# helper objects with manual lifecycle forwarding make execution order and ownership implicit.
 - Input is passed through string-keyed dictionaries, which makes feature extraction and renaming fragile.
 
 ### Item And Weapon Stack
 
 Current shape:
 
-- `Interactable : Base`
+- `Interactable : MonoBehaviour`
 - `Item : Interactable`
 - `Weapon : Item`
 - `Gun : Weapon`
@@ -50,24 +43,30 @@ Scaling risk:
 - Inventory classification uses `item is Weapon`, which couples storage rules to inheritance.
 - Weapon tuning is set in code, such as `Pistol.Awake`, instead of reusable data/configuration.
 
-### Shared Base And Entity Lookup
+### Entity Wiring
 
 Current shape:
 
-- `Base` gives common `EntityRefs` access to controllers, input handlers, inventory, target, ammo, interactables, and items.
-- `EntityRefs` dynamically indexes all child components.
+- Explicit serialized references wire stable owner relationships.
+- Narrow local fallbacks use `GetComponent`, `GetComponentInChildren`, or parent/child hierarchy scans only at the specific call site that needs them.
 
 Scaling risk:
 
-- `Base` is convenient, but it encourages every gameplay component to inherit from the same root just to access entity lookup.
-- `EntityRefs` can become an implicit service locator if components use it for broad cross-feature access instead of focused local dependencies.
+- A dynamic entity index or universal refs object can become an implicit service locator if components use it for broad cross-feature access instead of focused local dependencies.
 
 ### Targeting And Vehicle Responsibilities
 
+Original shape:
+
+- `Target` owned visual targeting state, target picking, legacy LOS behavior, and the Oblique Loft bridge.
+- `CarController` owned driving physics, animation, enter/exit possession, visibility changes, parenting, and input handler switching.
+
 Current shape:
 
-- `Target` owns visual targeting state, target picking, legacy LOS behavior, and the Oblique Loft bridge.
-- `CarController` owns driving physics, animation, enter/exit possession, visibility changes, parenting, and input handler switching.
+- `Target` presents shooter-side target state and delegates selection/LOS decisions to targeting strategies.
+- `VehicleMotor` owns driving input and movement ticking.
+- `VehicleAnimationController` owns vehicle animator parameters.
+- `VehiclePossession` owns enter/exit, driver visibility/collision state, parenting, and input-handler switching.
 
 Scaling risk:
 
@@ -79,13 +78,13 @@ Prefer capability components over type-specific helper inheritance.
 
 Example target shape for a character entity:
 
-- `EntityRefs`
 - `CharacterMotor`
-- `FacingAnimator`
+- `CharacterAnimationController`
 - `InteractionSensor`
-- `Inventory`
+- `InventoryUser`
+- `Inventory` child/prefab with item containers
 - `WeaponUser`
-- `TargetingView`
+- `TargetingPresenter` or `AimTarget`
 - `PlayerInputRouter`
 
 Example capability interfaces:
@@ -105,8 +104,8 @@ The intended direction:
 - Input routers translate raw input into typed intent.
 - Capability components own behavior.
 - Entity composition decides what an object can do.
-- `EntityRefs` discovers local parts but does not become global ownership.
-- Existing controllers remain as compatibility facades during migration.
+- Explicit serialized references define stable local ownership.
+- Transition controller shells are removed once prefab routing and local owner APIs cover their old entry points.
 
 ## Migration Rules
 
@@ -146,11 +145,9 @@ Migration steps:
 2. Keep `InputData` as the raw Unity input snapshot from `InputManager`.
 3. Change `CharacterInputHandler.SetInputs(InputData)` to populate `CharacterInputState`.
 4. Change `CarInputHandler.SetInputs(InputData)` to populate `CarInputState`.
-5. Replace `InputHandlerHelper.GetInputs()` dictionary use with typed state accessors.
-6. Update `GunInputHandler` to read aim/fire/mouse values from `CharacterInputState`.
-7. Update `ItemsInputHandler` to read drop/scroll values from `CharacterInputState`.
-8. Remove dictionary keys only after all readers are migrated.
-9. Compile and play-test character and car input.
+5. Done: replace old helper dictionary use with typed state routing.
+6. Done: remove dictionary keys after all readers migrated.
+7. Compile and play-test character and car input.
 
 Exit criteria:
 
@@ -160,21 +157,19 @@ Exit criteria:
 
 ## Phase 2: Explicit Feature Lifecycle
 
-Purpose: make current helper ownership clear before converting helpers into components.
+Purpose: make helper ownership clear before converting helpers into components.
 
 Migration steps:
 
-1. Add small lifecycle interfaces, for example `IEntityFeature`, `IFixedTickFeature`, and `ILateTickFeature`, or use project-specific names like `Tick` and `FixedTick`.
-2. Update `ControllerHelper<T>` and `InputHandlerHelper<T>` to implement the lifecycle interface temporarily.
-3. Rename forwarded calls in owning classes where useful, or centralize helper ticking through a list.
-4. Make `CharacterController` register `GunController` and `ItemsController` in a feature list.
-5. Make `CharacterInputHandler` register `GunInputHandler` and `ItemsInputHandler` in a feature list.
-6. Compile and verify update order remains unchanged.
+1. Done historically: add small lifecycle interfaces and centralize helper ticking while helpers still existed.
+2. Superseded: character input helpers were removed after `PlayerInputRouter` validation.
+3. Superseded: `GunController`, `ItemsController`, `ControllerHelper<T>`, `CharacterControllerHelper`, and the lifecycle interfaces were removed after Unity validation of the capability path.
+4. Compile and verify update order remains unchanged.
 
 Exit criteria:
 
-- Helper lifecycle is explicit.
-- Adding/removing a helper does not require custom one-off forwarding code in multiple places.
+- No plain C# controller helper lifecycle remains in gameplay code.
+- New behavior uses focused `MonoBehaviour` lifecycle or explicit capability APIs.
 
 ## Phase 3: Character Capabilities
 
@@ -183,20 +178,22 @@ Purpose: extract character behavior into reusable components.
 Migration steps:
 
 1. Add `CharacterMotor` as a MonoBehaviour that owns movement vector, speed, Rigidbody2D velocity, and facing.
-2. Have `CharacterController.MoveToward` delegate to `CharacterMotor`.
-3. Move animation parameter writing into `CharacterAnimator` or a similarly focused component.
-4. Have `CharacterController` delegate animation to the new component.
+2. Superseded: `PlayerInputRouter` routes movement directly to `CharacterMotor`.
+3. Move only the current locomotion parameter writing into `CharacterAnimationController` or a similarly focused component.
+4. Done: `CharacterAnimationController` owns animation ticking directly through its own `Update`.
 5. Add `InteractionSensor` or `Interactor` to own nearby interactable tracking.
 6. Move `Controller` interactable list behavior into the interaction component for characters.
-7. Keep `CharacterController.InteractWith` as a compatibility facade that delegates to `Interactor`.
+7. Done: `PlayerInputRouter` routes interaction directly to `CharacterInteractor`.
 8. Compile and validate movement, animation, and interaction.
-9. After prefab validation, remove duplicated state from `CharacterController`.
+9. Done: remove the old `CharacterController` shell and its prefab component.
 
 Exit criteria:
 
 - Movement, animation, and interaction are independent character components.
-- `CharacterController` is thinner and mostly delegates.
+- `CharacterController` is removed from the active runtime path.
 - Feature components can be reused by non-player characters without inheriting from `CharacterController`.
+
+Detailed animation design, aim pose integration, animator parameters, and frame-specific visual gun points are intentionally outside this phase. Use `Docs/AnimationMigrationPlan.md` for that follow-up work after the composition foundation is validated.
 
 ## Phase 4: Weapon User And Inventory Input
 
@@ -204,21 +201,24 @@ Purpose: remove character-specific gun/item helper coupling.
 
 Migration steps:
 
-1. Add a `WeaponUser` MonoBehaviour that owns equipped weapon aiming, gun positioning, trigger state forwarding, and shoot height/distance settings.
-2. Move `GunController` logic into `WeaponUser` while keeping `GunController` as a temporary adapter if needed.
-3. Replace direct `controller.gunController` calls with `EntityRefs.Get<WeaponUser>()` or a focused serialized reference.
-4. Add an `InventoryUser` or focused inventory command component for cycle/drop/pickup operations.
-5. Move `ItemsController` behavior into `InventoryUser`.
-6. Update `GunInputHandler` to call `IAimInputReceiver` and `IFireInputReceiver` instead of `CharacterController.gunController`.
-7. Update `ItemsInputHandler` to call `IInventoryInputReceiver`.
-8. Update `Item.PickUp` to call an item pickup capability instead of requiring `CharacterController`.
-9. Compile and verify aim/fire, pickup/drop, and weapon cycling.
+1. Done: add a `WeaponUser` MonoBehaviour that owns equipped weapon aiming, gun positioning, trigger state forwarding, and shoot height/distance settings.
+2. Done: move `GunController` logic into `WeaponUser`.
+3. Done: replace direct `controller.gunController` input calls with `PlayerInputRouter` wiring to `WeaponUser`. `Target` is initialized by `WeaponUser` directly.
+4. Done: add an `InventoryUser` focused inventory command component for cycle/drop/pickup operations.
+5. Done: move `ItemsController` behavior into `InventoryUser`.
+6. Superseded: aim/fire input now routes directly from `PlayerInputRouter` to `IAimInputReceiver` and `IFireInputReceiver`.
+7. Superseded: inventory input now routes directly from `PlayerInputRouter` to `IInventoryInputReceiver`.
+8. Done: update `Item.PickUp` to call `IItemPickupReceiver` instead of requiring `CharacterController`.
+9. Done: audit the already-migrated character prefab/code against the interface routing change. The text prefab contains `CharacterMotor`, `CharacterAnimationController`, `CharacterInteractor`, `WeaponUser`, `InventoryUser`, and `PlayerInputRouter` wired by explicit serialized references, with inventory state on the `Inventory` child/prefab.
+10. Done after Unity validation: remove `GunController`, `ItemsController`, `ControllerHelper<T>`, `CharacterControllerHelper`, and the helper lifecycle interfaces.
+11. Compile and verify aim/fire, pickup/drop, and weapon cycling.
 
 Exit criteria:
 
-- Guns/items are no longer tied to `CharacterControllerHelper`.
+- Input, pickup, target initialization, and weapon/inventory commands are no longer tied to `CharacterControllerHelper`, `GunController`, or `ItemsController`.
 - A different entity can use weapons or inventory by adding capability components.
 - Shoot height and gun distance are serialized tuning values, not hardcoded helper fields.
+- Runtime fallback wiring keeps required local components initialized when migration components are auto-added.
 
 ## Phase 5: Input Router Composition
 
@@ -226,25 +226,25 @@ Purpose: replace type-specific input helpers with capability routing.
 
 Migration steps:
 
-1. Introduce `PlayerInputRouter` as the active `InputHandler` for player-controlled entities.
-2. Let the router translate `InputData` into typed commands.
-3. Route commands to local capability interfaces:
-   - `IMoveInputReceiver`
-   - `IInteractInputReceiver`
-   - `IAimInputReceiver`
-   - `IFireInputReceiver`
-   - `IInventoryInputReceiver`
-4. Keep `CharacterInputHandler` as an adapter that forwards to `PlayerInputRouter`.
-5. Keep `CarInputHandler` as an adapter or add a `VehicleInputRouter`.
+1. Started: introduce `PlayerInputRouter` for player-controlled character command routing. `CharacterInputHandler` remains the active `InputHandler` for now so `InputManager` active-handler switching stays stable. `Assets/Prefabs/Character/Character.prefab` is text-wired with `PlayerInputRouter`.
+2. Done for characters: keep raw `InputData` translation in `CharacterInputHandler`, then forward the typed `CharacterInputState` to `PlayerInputRouter`.
+3. Done for characters: route commands to local capability interfaces:
+   - `IMoveInputReceiver` implemented by `CharacterMotor`
+   - `IInteractInputReceiver` implemented by `CharacterInteractor`
+   - `IAimInputReceiver` implemented by `WeaponUser`
+   - `IFireInputReceiver` implemented by `WeaponUser`
+   - `IInventoryInputReceiver` implemented by `InventoryUser`
+4. Done for characters: keep `CharacterInputHandler` as an adapter that forwards to `PlayerInputRouter`.
+5. Done for current car input: keep `CarInputHandler` as the active adapter and add `VehicleInputRouter`, with `VehicleMotor` implementing `IVehicleInputReceiver`. `Assets/Prefabs/Vehicle/Car V2.prefab` is text-wired with `VehicleInputRouter`.
 6. Update `InputManager.SetInputHandler` only if the active-handler abstraction needs to become an active-router abstraction.
 7. Compile and validate character and car control switching.
-8. Remove old input helper classes after all routes are migrated.
+8. Done: remove old input helper classes after Unity validation confirmed the router path. `GunInputHandler`, `ItemsInputHandler`, `CharacterInputHandlerHelper`, and `InputHandlerHelper` are no longer in the project.
 
 Exit criteria:
 
-- Input is routed by capabilities, not concrete entity type.
+- Character and car input are routed by capability interfaces, not concrete entity types.
 - Character/car possession still works.
-- `GunInputHandler` and `ItemsInputHandler` are deleted or reduced to adapters with no feature logic.
+- `GunInputHandler`, `ItemsInputHandler`, `CharacterInputHandlerHelper`, and `InputHandlerHelper` are deleted.
 
 ## Phase 6: Vehicle Possession And Movement Split
 
@@ -252,20 +252,22 @@ Purpose: separate car driving from entering/exiting and input ownership.
 
 Migration steps:
 
-1. Add `VehicleMotor` for speed, acceleration, braking, steering bucket, Rigidbody2D velocity, and animation direction.
-2. Have `CarController` delegate driving methods to `VehicleMotor`.
-3. Add `VehicleSeat` or `PossessableVehicle` for enter/exit.
-4. Move driver parenting, visibility, Rigidbody mode switching, and input handler switching into the possession component.
-5. Add explicit exit anchors or a simple exit-position strategy.
-6. Keep `CarController.Enter` and `CarController.Exit` as compatibility facades during migration.
-7. Compile and validate enter, exit, driving, braking, reversing, and animation.
-8. Remove duplicated movement/possession state from `CarController`.
+1. Done for first slice: add `VehicleMotor` for speed, acceleration, braking, steering bucket, Rigidbody2D velocity, and driving/heading state.
+2. Done: route vehicle input directly to `VehicleMotor`.
+3. Done: add `VehicleAnimationController` so vehicle animation parameters are owned by a vehicle-specific animation component.
+4. Done: add `VehiclePossession` for enter/exit.
+5. Done: move driver parenting, visibility, Rigidbody mode switching, and input handler switching into the possession component.
+6. Deferred: add explicit exit anchors or a simple exit-position strategy when vehicle placement rules are designed.
+7. Done: route car interaction to `VehiclePossession.Enter`, and route exit input through `VehicleMotor.Exit` to `VehiclePossession`.
+8. Compile and validate enter, exit, driving, braking, reversing, and animation.
+9. Done: remove the old `CarController` shell and its prefab component.
 
 Exit criteria:
 
 - Car movement and possession are separate components.
 - Possession can be reused for other vehicles or seats.
-- `CarController` is thin or removed after prefab migration.
+- `CarController` is removed from the active runtime path.
+- Vehicle animation parameter writing is no longer hardcoded in `CarController`.
 
 ## Phase 7: Item And Weapon Composition
 
@@ -273,19 +275,20 @@ Purpose: avoid deeper weapon inheritance as more weapon behavior is added.
 
 Migration steps:
 
-1. Add data assets or serialized configs for weapon stats: base damage, distance falloff, mag size, fire rate, reload time.
-2. Add `EquippableItem` for equip/unequip behavior.
+1. Done for current gun path: add serialized `GunStats` config for base damage, distance falloff, mag size, fire speed, and fire rate.
+2. Started: add `IEquippable` for equip/unequip behavior. `Weapon` implements it as the current adapter.
 3. Add `WeaponBehaviour` or `DamageDealer` for weapon-level behavior.
-4. Add fire-mode components or strategy objects:
+4. Done for current gun path: add fire-mode components:
    - `SemiAutoFireMode`
    - `FullAutoFireMode`
    - `BurstFireMode`
    - future charge or thrown modes
-5. Change `Gun` to delegate trigger behavior to a fire-mode component.
-6. Replace `Pistol : SemiAuto` tuning with a pistol config.
-7. Update `Inventory` classification to use capabilities such as `IEquippable` or item category data instead of `item is Weapon`.
-8. Keep old weapon subclasses as adapters until prefabs are migrated.
-9. Compile and verify equip, unequip, fire, and inventory behavior.
+5. Done: change `Gun` / `SemiAuto` / `FullAuto` to delegate trigger behavior to fire-mode components while keeping the old subclasses as adapters.
+6. Done for current pistol behavior: replace `Pistol : SemiAuto` hardcoded `Awake` tuning with serialized `GunStats` defaults on the gun path.
+7. Done for current inventory path: update `Inventory` and `InventoryUser` classification to use `IEquippable` instead of `item is Weapon`.
+8. Done for current character path: move `Inventory` state/storage onto the `Inventory` child/prefab with explicit `Weapons` and `Misc` container references; keep `InventoryUser` on the character as the command capability.
+9. Keep old weapon subclasses as adapters until prefabs are migrated.
+10. Compile and verify equip, unequip, fire, and inventory behavior.
 
 Exit criteria:
 
@@ -297,41 +300,52 @@ Exit criteria:
 
 Purpose: keep targeting and LOS maintainable while Oblique Loft integration grows.
 
+Current targeting roles to preserve:
+
+- `AimTarget` / `Target` is the shooter-side targetter and marker presenter.
+- `SimpleTarget` is the shootable-target component for characters and other flat animated targets. It owns a flat current-frame hit polygon plus an authored horizontal ground reference line.
+- `ObliqueLoftCollider` is for mostly-static blockers and direct static targets. Complex moving objects such as cars are intentionally out of scope for Oblique Loft LOS right now.
+- The old depth/hit/enclosure path remains the fallback while migrated prefabs are validated.
+
 Migration steps:
 
-1. Add a pure targeting result type that describes chosen object, hit point, blocker, LOS mode, and debug data.
-2. Extract target resolution from `Target` into a non-MonoBehaviour service such as `TargetingResolver`.
-3. Extract legacy depth/hit-collider LOS into a resolver strategy.
-4. Keep Oblique Loft LOS in its existing runtime layer and expose it through a resolver strategy.
-5. Let `Target` own display/highlight/debug drawing only.
-6. Keep old-vs-new fallback behavior unchanged until sample loft volumes are validated.
-7. Compile and validate selected targets, intervening targets, blockers, direct loft targeting, and debug drawing.
+1. Done for first slice: add `TargetingResult`, a pure targeting result type that describes intended target, actual hit object, hit point, derived ground point, target height, blocker, LOS mode, and debug data.
+2. Done for first slice: extract the selected-object and direct-click selection pass from `Target` into `TargetSelectionResolver` while preserving current highlighter ownership resolution.
+3. Done: extract the `SimpleTarget` candidate pass into `SimpleTargetingStrategy`. It keeps the current ordering: selected target and intervening flat targets are one distance-sorted candidate list, and a nearer unblocked candidate wins. Static Oblique blocker checks are still called through a `Target` callback while that strategy is extracted separately.
+4. Done: extract static Oblique Loft blocker/direct-target tests into `ObliqueTargetingStrategy`. It wraps the existing `ObliqueLoftLos`, projected generated-face aim, generated-face raycast, minimum-radius filtering, and debug result data instead of reimplementing the geometry layer.
+5. Done: extract the old depth/hit/enclosure fallback into `LegacyDepthTargetingStrategy`, including the selected DepthCollider target line, old interposing DepthCollider scan, and old HitCollider point/intersection checks.
+6. Done for current routing: keep `Target` focused on shooter-side state, marker display, highlight routing, debug drawing switches, and wiring to the resolver/strategies.
+7. Keep `AimOrigin` as the logical shot origin and `GunPoint` as visual placement only; do not let targeting decomposition depend on animation-frame visual gun position for real ray math.
+8. Keep old-vs-new fallback behavior unchanged until SimpleTarget and sample loft volumes are Unity-validated.
+9. Compile and validate selected SimpleTargets, intervening SimpleTargets, static Oblique blockers, direct loft targeting through footprint/projected faces, legacy fallback targets, highlights, and debug drawing.
 
 Exit criteria:
 
 - `Target` no longer owns all targeting decisions directly.
-- Legacy and Oblique Loft LOS are explicit strategies.
+- SimpleTarget, Oblique Loft, and legacy targeting are explicit strategies with the same gameplay ordering as the current bridge.
 - Future LOS comparison tooling is easier to add.
+- `AimTarget` remains a shooter-side presentation/integration prefab, not a shootable target.
 
-## Phase 9: Reduce `Base` Coupling
+## Phase 9: Remove Shared Lookup Coupling
 
-Purpose: stop requiring gameplay components to inherit from `Base` just for entity lookup.
+Purpose: stop requiring gameplay components to inherit from `Base` or depend on a dynamic entity index just for local wiring.
 
 Migration steps:
 
-1. Keep `EntityRefs` as the entity-local component index.
-2. Add a small extension/helper for components that need local lookup without inheriting from `Base`.
-3. Move new components to inherit directly from `MonoBehaviour`.
-4. Replace broad `EntityRefs.Get<T>()` access with serialized references for stable required dependencies where practical.
-5. Use `EntityRefs` mostly for optional sibling capabilities and prefab migration compatibility.
-6. Gradually remove `Base` inheritance from components that do not need shared behavior.
-7. Compile and validate prefabs after each group of components is migrated.
+1. Done: add explicit serialized fields for stable required dependencies on controllers, routers, weapon/inventory users, vehicle components, and target prefabs.
+2. Done: `InputHandler`, `Interactable`, `Inventory`, `Target`, and `Ammo` now inherit directly from `MonoBehaviour`; the unused `Base` and `Controller` scripts have been removed.
+3. Done: remove `EntityRefs`, `EntityRefsExtensions`, runtime references to them, compile entries, and prefab components.
+4. Done: replace input-router capability discovery with explicit router fields.
+5. Done: replace `WeaponUser` and `InventoryUser` dynamic lookup with explicit `Target` / `Inventory` references and local component fallback.
+6. Done: replace vehicle dynamic lookup with explicit vehicle/input-handler/animator references.
+7. Done: keep only narrow local hierarchy fallback where the owning object is inherently dynamic, such as item pickup receiver resolution or SimpleTarget tagged child collider lookup.
+8. Compile and validate prefabs after each group of components is migrated.
 
 Exit criteria:
 
-- `Base` is no longer the default parent for every gameplay component.
+- `Base` is no longer the default parent for gameplay components.
 - Required dependencies are explicit.
-- `EntityRefs` remains useful without becoming hidden global wiring.
+- No dynamic entity index remains in runtime architecture.
 
 ## Suggested Order
 
@@ -344,9 +358,11 @@ Exit criteria:
 7. Phase 6: Vehicle Possession And Movement Split.
 8. Phase 7: Item And Weapon Composition.
 9. Phase 8: Targeting Decomposition.
-10. Phase 9: Reduce `Base` Coupling.
+10. Phase 9: Remove Shared Lookup Coupling.
 
 The highest-value early migration is typed input state because it lowers risk for every later input and capability change. The highest-value structural migration is extracting `WeaponUser` and `CharacterMotor`, because those remove the strongest coupling from `CharacterController`.
+
+See `Docs/AnimationMigrationPlan.md` for the dedicated follow-up plan for entity-specific animation controller components, character animation, vehicle animation, aim pose, and frame-specific visual gun points. The composition plan should only keep the minimal animation extraction needed to decouple broad gameplay controllers; detailed animator behavior belongs in the animation plan.
 
 ## Validation Checklist For Each Migration
 

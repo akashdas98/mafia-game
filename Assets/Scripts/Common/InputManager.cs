@@ -1,11 +1,16 @@
 using System.Collections;
 using System.Collections.Generic;
+using Cinemachine;
 using UnityEngine;
 
 public class InputManager : MonoBehaviour
 {
+  [SerializeField] private CinemachineVirtualCamera cinemachineCamera;
+  [SerializeField] private bool updateCinemachineFollow = true;
+
   public InputHandler inputHandler;
   private List<InputHandler> inputHandlers = new List<InputHandler>();
+  private bool warnedMissingInputHandler;
 
   private InputData GetInputData()
   {
@@ -27,17 +32,84 @@ public class InputManager : MonoBehaviour
 
   public void SetInputHandler(InputHandler inputHandler)
   {
-    this.inputHandler.ResetInputs();
-    this.inputHandler = inputHandler;
-    inputHandler.AssignInputManager(this);
-  }
+    if (this.inputHandler != null)
+    {
+      this.inputHandler.ResetInputs();
+    }
 
-  private void InitializeInputHandler()
-  {
+    this.inputHandler = inputHandler;
+    warnedMissingInputHandler = false;
+
     if (inputHandler != null)
     {
       inputHandler.AssignInputManager(this);
     }
+
+    SyncCinemachineFollow();
+  }
+
+  private void InitializeInputHandler()
+  {
+    if (inputHandler == null)
+    {
+      inputHandler = FindDefaultInputHandler();
+    }
+
+    if (inputHandler != null)
+    {
+      inputHandler.AssignInputManager(this);
+    }
+
+    SyncCinemachineFollow();
+  }
+
+  private void SyncCinemachineFollow()
+  {
+    if (!updateCinemachineFollow || inputHandler == null)
+    {
+      return;
+    }
+
+    if (cinemachineCamera == null)
+    {
+      GameObject cameraObject = GameObject.FindWithTag("PlayerCinemachine");
+      if (cameraObject != null)
+      {
+        cinemachineCamera = cameraObject.GetComponent<CinemachineVirtualCamera>();
+      }
+    }
+
+    if (cinemachineCamera != null)
+    {
+      cinemachineCamera.Follow = inputHandler.transform;
+    }
+  }
+
+  private InputHandler FindDefaultInputHandler()
+  {
+    InputHandler[] activeHandlers = FindObjectsOfType<InputHandler>();
+    InputHandler fallbackHandler = null;
+
+    for (int i = 0; i < activeHandlers.Length; i++)
+    {
+      InputHandler activeHandler = activeHandlers[i];
+      if (activeHandler == null || !activeHandler.isActiveAndEnabled)
+      {
+        continue;
+      }
+
+      if (activeHandler is CharacterInputHandler)
+      {
+        return activeHandler;
+      }
+
+      if (fallbackHandler == null)
+      {
+        fallbackHandler = activeHandler;
+      }
+    }
+
+    return fallbackHandler;
   }
 
   void Start()
@@ -47,6 +119,25 @@ public class InputManager : MonoBehaviour
 
   void Update()
   {
+    if (inputHandler == null)
+    {
+      InitializeInputHandler();
+      if (inputHandler != null)
+      {
+        warnedMissingInputHandler = false;
+        inputHandler.SetInputs(GetInputData());
+        return;
+      }
+
+      if (!warnedMissingInputHandler)
+      {
+        Debug.LogWarning($"{nameof(InputManager)} on {name} has no active input handler assigned.", this);
+        warnedMissingInputHandler = true;
+      }
+
+      return;
+    }
+
     inputHandler.SetInputs(GetInputData());
   }
 }

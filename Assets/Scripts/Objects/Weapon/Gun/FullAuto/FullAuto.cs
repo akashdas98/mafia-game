@@ -4,6 +4,15 @@ using UnityEngine;
 
 public abstract class FullAuto : Gun
 {
+    protected override GunFireMode EnsureFireMode()
+    {
+        return GetOrCreateFireMode<FullAutoFireMode>();
+    }
+
+    protected override void Fire()
+    {
+    }
+
     // Start is called before the first frame update
     void Start()
     {

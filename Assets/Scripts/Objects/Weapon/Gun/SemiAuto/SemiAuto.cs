@@ -4,22 +4,9 @@ using UnityEngine;
 
 public abstract class SemiAuto : Gun
 {
-    public override void PullTrigger()
+    protected override GunFireMode EnsureFireMode()
     {
-        if (isTriggerPulled)
-        {
-            return;
-        }
-        Fire();
-        base.PullTrigger();
-    }
-    public override void ReleaseTrigger()
-    {
-        if (!isTriggerPulled)
-        {
-            return;
-        }
-        base.ReleaseTrigger();
+        return GetOrCreateFireMode<SemiAutoFireMode>();
     }
 
     protected override void Fire()

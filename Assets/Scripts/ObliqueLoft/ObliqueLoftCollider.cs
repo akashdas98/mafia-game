@@ -1,16 +1,25 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [RequireComponent(typeof(PolygonCollider2D))]
+[AddComponentMenu("Oblique Loft/Oblique Loft Collider")]
 [ExecuteAlways]
 public class ObliqueLoftCollider : MonoBehaviour
 {
   [SerializeField] private bool useInRaycasts = true;
   [SerializeField] private bool showGizmos;
+  [Header("Sprite Frame Profiles")]
+  [FormerlySerializedAs("activeProfileRenderer")]
+  [SerializeField] private SpriteRenderer targetSpriteRenderer;
+  [SerializeField] private bool useSpriteFrameProfiles;
+  [SerializeField] private List<ObliqueLoftSpriteFrameProfile> spriteFrameProfiles = new List<ObliqueLoftSpriteFrameProfile>();
   [SerializeField] private List<Vector2> footprint = new List<Vector2>();
   [SerializeField] private List<ObliqueLoftSlice> slices = new List<ObliqueLoftSlice>();
   [SerializeField] private List<ObliqueLoftFace> generatedFaces = new List<ObliqueLoftFace>();
   [SerializeField] private List<string> validationErrors = new List<string>();
+  private SpriteRenderer lastAppliedRenderer;
+  private Sprite lastAppliedSprite;
 
   public bool UseInRaycasts => useInRaycasts;
   public IReadOnlyList<Vector2> Footprint => footprint;
@@ -22,6 +31,9 @@ public class ObliqueLoftCollider : MonoBehaviour
   public bool IsValid => validationErrors.Count == 0;
   public bool ShowGizmos => showGizmos;
   public PolygonCollider2D FootprintCollider => EnsureFootprintCollider();
+  public bool UseSpriteFrameProfiles => useSpriteFrameProfiles;
+  public SpriteRenderer TargetSpriteRenderer => ResolveTargetSpriteRenderer();
+  public IReadOnlyList<ObliqueLoftSpriteFrameProfile> SpriteFrameProfiles => spriteFrameProfiles;
 
   public void ResetToBox(float width = 1f, float depth = 1f, float height = 0.5f)
   {
@@ -60,6 +72,151 @@ public class ObliqueLoftCollider : MonoBehaviour
     validationErrors = ObliqueLoftBuilder.Validate(footprint, slices);
     generatedFaces = validationErrors.Count == 0 ? ObliqueLoftBuilder.BuildFaces(slices) : new List<ObliqueLoftFace>();
     SyncFootprintCollider();
+  }
+
+  public void SetTargetSpriteRenderer(SpriteRenderer spriteRenderer)
+  {
+    targetSpriteRenderer = spriteRenderer;
+    ApplyCurrentSpriteProfileIfNeeded(true);
+  }
+
+  public bool TryGetCurrentProfileKey(out SpriteRenderer renderer, out Sprite sprite, out string rendererPath)
+  {
+    renderer = ResolveTargetSpriteRenderer();
+    if (renderer == null ||
+      !renderer.enabled ||
+      !renderer.gameObject.activeInHierarchy ||
+      renderer.sprite == null)
+    {
+      renderer = null;
+    }
+
+    sprite = renderer != null ? renderer.sprite : null;
+    rendererPath = "";
+    return renderer != null && sprite != null;
+  }
+
+  public bool TryGetCurrentSpriteProfile(out ObliqueLoftSpriteFrameProfile profile)
+  {
+    profile = null;
+    if (!TryGetCurrentProfileKey(out SpriteRenderer renderer, out Sprite sprite, out string rendererPath))
+    {
+      return false;
+    }
+
+    profile = FindProfile(renderer, sprite, rendererPath, true);
+    return profile != null;
+  }
+
+  public bool CaptureCurrentSpriteProfile()
+  {
+    if (!TryGetCurrentProfileKey(out SpriteRenderer renderer, out Sprite sprite, out string rendererPath))
+    {
+      return false;
+    }
+
+    ObliqueLoftSpriteFrameProfile profile = FindProfile(renderer, sprite, rendererPath, false);
+    if (profile == null)
+    {
+      profile = new ObliqueLoftSpriteFrameProfile();
+      profile.SetKey(renderer, sprite, rendererPath);
+      spriteFrameProfiles.Add(profile);
+    }
+
+    profile.Capture(footprint, slices);
+    return true;
+  }
+
+  public bool ApplyCurrentSpriteProfile()
+  {
+    return ApplyCurrentSpriteProfileIfNeeded(true);
+  }
+
+  public bool ApplyCurrentSpriteProfileIfNeeded(bool force)
+  {
+    if (!useSpriteFrameProfiles ||
+      !TryGetCurrentProfileKey(out SpriteRenderer renderer, out Sprite sprite, out string rendererPath))
+    {
+      return false;
+    }
+
+    if (!force && renderer == lastAppliedRenderer && sprite == lastAppliedSprite)
+    {
+      return false;
+    }
+
+    ObliqueLoftSpriteFrameProfile profile = FindProfile(renderer, sprite, rendererPath, true);
+    if (profile == null)
+    {
+      return false;
+    }
+
+    lastAppliedRenderer = renderer;
+    lastAppliedSprite = sprite;
+    ApplyProfile(profile);
+    return true;
+  }
+
+  public bool SyncCurrentSpriteProfileForAuthoring()
+  {
+    if (!useSpriteFrameProfiles ||
+      !TryGetCurrentProfileKey(out SpriteRenderer renderer, out Sprite sprite, out string rendererPath))
+    {
+      return false;
+    }
+
+    bool keyChanged = renderer != lastAppliedRenderer || sprite != lastAppliedSprite;
+    if (keyChanged)
+    {
+      CaptureLastAppliedSpriteProfile();
+
+      ObliqueLoftSpriteFrameProfile profile = FindProfile(renderer, sprite, rendererPath, true);
+      lastAppliedRenderer = renderer;
+      lastAppliedSprite = sprite;
+      if (profile != null)
+      {
+        ApplyProfile(profile);
+        return true;
+      }
+
+      return CaptureCurrentSpriteProfile();
+    }
+
+    return false;
+  }
+
+  public bool DeleteCurrentSpriteProfile()
+  {
+    if (!TryGetCurrentProfileKey(out SpriteRenderer renderer, out Sprite sprite, out string rendererPath))
+    {
+      return false;
+    }
+
+    ObliqueLoftSpriteFrameProfile profile = FindProfile(renderer, sprite, rendererPath, false);
+    if (profile == null)
+    {
+      return false;
+    }
+
+    spriteFrameProfiles.Remove(profile);
+    lastAppliedRenderer = null;
+    lastAppliedSprite = null;
+    return true;
+  }
+
+  public void SetShape(IReadOnlyList<Vector2> newFootprint, IReadOnlyList<ObliqueLoftSlice> newSlices)
+  {
+    footprint = newFootprint != null ? new List<Vector2>(newFootprint) : new List<Vector2>();
+    slices = new List<ObliqueLoftSlice>();
+    if (newSlices != null)
+    {
+      for (int i = 0; i < newSlices.Count; i++)
+      {
+        slices.Add(newSlices[i] != null ? newSlices[i].Clone() : new ObliqueLoftSlice());
+      }
+    }
+
+    Rebuild();
   }
 
   public Vector3 LocalToLogicWorld(Vector3 local)
@@ -154,6 +311,7 @@ public class ObliqueLoftCollider : MonoBehaviour
 
   private void OnValidate()
   {
+    ResolveTargetSpriteRenderer();
     Rebuild();
   }
 
@@ -167,8 +325,17 @@ public class ObliqueLoftCollider : MonoBehaviour
     Rebuild();
   }
 
+  private void Update()
+  {
+    if (Application.isPlaying)
+    {
+      ApplyCurrentSpriteProfileIfNeeded(false);
+    }
+  }
+
   private void Reset()
   {
+    ResolveTargetSpriteRenderer();
     ResetToBox();
   }
 
@@ -215,5 +382,103 @@ public class ObliqueLoftCollider : MonoBehaviour
   {
     Vector3 axis = transform.TransformVector(Vector3.up);
     return new Vector2(axis.x, axis.y);
+  }
+
+  private ObliqueLoftSpriteFrameProfile FindProfile(SpriteRenderer renderer, Sprite sprite, string rendererPath, bool allowSpriteOnlyFallback)
+  {
+    for (int i = 0; i < spriteFrameProfiles.Count; i++)
+    {
+      ObliqueLoftSpriteFrameProfile profile = spriteFrameProfiles[i];
+      if (profile != null && profile.Matches(renderer, sprite, rendererPath))
+      {
+        return profile;
+      }
+    }
+
+    if (!allowSpriteOnlyFallback)
+    {
+      return null;
+    }
+
+    for (int i = 0; i < spriteFrameProfiles.Count; i++)
+    {
+      ObliqueLoftSpriteFrameProfile profile = spriteFrameProfiles[i];
+      if (profile != null && profile.MatchesSpriteOnly(sprite))
+      {
+        return profile;
+      }
+    }
+
+    return null;
+  }
+
+  private void ApplyProfile(ObliqueLoftSpriteFrameProfile profile)
+  {
+    if (profile == null)
+    {
+      return;
+    }
+
+    SetShape(profile.Footprint, profile.Slices);
+  }
+
+  private void CaptureLastAppliedSpriteProfile()
+  {
+    if (lastAppliedRenderer == null || lastAppliedSprite == null)
+    {
+      return;
+    }
+
+    ObliqueLoftSpriteFrameProfile profile = FindProfile(lastAppliedRenderer, lastAppliedSprite, "", false);
+    if (profile == null)
+    {
+      profile = new ObliqueLoftSpriteFrameProfile();
+      profile.SetKey(lastAppliedRenderer, lastAppliedSprite, "");
+      spriteFrameProfiles.Add(profile);
+    }
+
+    profile.Capture(footprint, slices);
+  }
+
+  public SpriteRenderer ResolveTargetSpriteRenderer()
+  {
+    if (targetSpriteRenderer != null)
+    {
+      return targetSpriteRenderer;
+    }
+
+    targetSpriteRenderer = GetComponent<SpriteRenderer>();
+    if (targetSpriteRenderer != null)
+    {
+      return targetSpriteRenderer;
+    }
+
+    targetSpriteRenderer = GetComponentInParent<SpriteRenderer>();
+    if (targetSpriteRenderer != null)
+    {
+      return targetSpriteRenderer;
+    }
+
+    targetSpriteRenderer = GetComponentInChildren<SpriteRenderer>();
+    return targetSpriteRenderer;
+  }
+
+  public bool IsTargetSpriteRenderer(SpriteRenderer spriteRenderer)
+  {
+    return spriteRenderer != null && ResolveTargetSpriteRenderer() == spriteRenderer;
+  }
+
+  public bool IsTargetSpriteRendererSelection(Transform selectedTransform)
+  {
+    SpriteRenderer renderer = ResolveTargetSpriteRenderer();
+    if (renderer == null || selectedTransform == null)
+    {
+      return false;
+    }
+
+    Transform rendererTransform = renderer.transform;
+    return selectedTransform == rendererTransform ||
+      selectedTransform.IsChildOf(rendererTransform) ||
+      rendererTransform.IsChildOf(selectedTransform);
   }
 }

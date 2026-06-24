@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 83f7fb6be77f5a64498130a2d6bf30ed, type: 3}
+  m_Name: CharacterSpriteCatalog
+  m_EditorClassIdentifier: 
+  entries:
+  - key: body_male_notfat_tan
+    partGroup: 0
+    gender: male
+    bodyType: notfat
+    skinColor: tan
+    faceType: 
+    variant: tan
+    useStaticSprite: 0
+    overrideController: {fileID: 22100000, guid: 4e8cf44ccdb80ab4087f8f4464c19054, type: 2}
+    staticSprite: {fileID: 0}
+  - key: face_male_tan_soft1
+    partGroup: 1
+    gender: male
+    bodyType: 
+    skinColor: tan
+    faceType: soft1
+    variant: soft1
+    useStaticSprite: 0
+    overrideController: {fileID: 22100000, guid: a413649cd5a553048afc2adcd77e7100, type: 2}
+    staticSprite: {fileID: 0}
+  - key: hair_male_soft1_shortcurly
+    partGroup: 2
+    gender: male
+    bodyType: 
+    skinColor: 
+    faceType: soft1
+    variant: shortcurly
+    useStaticSprite: 0
+    overrideController: {fileID: 22100000, guid: 61f19ce0b6aa9234a95b60d02123666b, type: 2}
+    staticSprite: {fileID: 0}
+  - key: lowerclothing_male_notfat_tanfulltrousers
+    partGroup: 4
+    gender: male
+    bodyType: notfat
+    skinColor: 
+    faceType: 
+    variant: tanfulltrousers
+    useStaticSprite: 0
+    overrideController: {fileID: 22100000, guid: d6202171e8a88bc47894b1fc0dfe1703, type: 2}
+    staticSprite: {fileID: 0}
+  - key: shoes_male_blackshoestansocks
+    partGroup: 5
+    gender: male
+    bodyType: 
+    skinColor: 
+    faceType: 
+    variant: blackshoestansocks
+    useStaticSprite: 0
+    overrideController: {fileID: 22100000, guid: 242517cbf78256a438d89e1f2e1f3250, type: 2}
+    staticSprite: {fileID: 0}
+  - key: upperclothing_male_notfat_greenhalfshirtblackplacketblackcollar
+    partGroup: 3
+    gender: male
+    bodyType: notfat
+    skinColor: 
+    faceType: 
+    variant: greenhalfshirtblackplacketblackcollar
+    useStaticSprite: 0
+    overrideController: {fileID: 22100000, guid: 836bd0088911c56489eeeaa7765106ec, type: 2}
+    staticSprite: {fileID: 0}

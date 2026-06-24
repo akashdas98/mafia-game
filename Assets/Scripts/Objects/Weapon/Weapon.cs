@@ -2,11 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public abstract class Weapon : Item
+public abstract class Weapon : Item, IEquippable
 {
     protected GameObject user;
     protected double baseDamage;
     protected Vector2 position = new Vector2(0, 0);
+
+    public Item Item => this;
 
     public void Equip(GameObject obj)
     {

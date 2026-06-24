@@ -76,3 +76,10 @@ crashlytics-build.properties
 
 /ExternalFiles
 /Assets/Graphics
+/Assets/Animations/Character/GeneratedClips/
+/Assets/Animations/Character/GeneratedClips.meta
+/Assets/Animations/Character/OverrideControllers/
+/Assets/Animations/Character/OverrideControllers.meta
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+/debug.log

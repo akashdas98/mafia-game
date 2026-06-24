@@ -1,87 +1,56 @@
-using System;
-using System.Collections.Generic;
-using UnityEngine;
-
 public class CharacterInputHandler : InputHandler
 {
-  private float
-    horizontalInput,
-    verticalInput,
-    actionInput,
-    interact,
-    drop,
-    scroll,
-    aim,
-    mouseX,
-    mouseY;
+  private CharacterInputState inputState;
+  private PlayerInputRouter inputRouter;
 
-  private GunInputHandler gunInputHandler;
-  private ItemsInputHandler itemsInputHandler;
+  public CharacterInputState InputState => inputState;
 
   public override void SetInputs(InputData input)
   {
-    horizontalInput = input.HorizontalAxis;
-    verticalInput = input.VerticalAxis;
-    actionInput = input.Action;
-    interact = input.Interact;
-    drop = input.Drop;
-    scroll = input.Scroll;
-    aim = input.Aim;
-    mouseX = input.MouseX;
-    mouseY = input.MouseY;
-  }
-
-  public override Dictionary<string, float> GetInputs()
-  {
-    return new Dictionary<string, float> {
-      {"horizontalInput", horizontalInput},
-      {"verticalInput", verticalInput},
-      {"actionInput", actionInput},
-      {"interact", interact},
-      {"drop", drop},
-      {"scroll", scroll},
-      {"aim", aim},
-      {"mouseX", mouseX},
-      {"mouseY", mouseY}
+    inputState = new CharacterInputState
+    {
+      HorizontalInput = input.HorizontalAxis,
+      VerticalInput = input.VerticalAxis,
+      ActionInput = input.Action,
+      Interact = input.Interact,
+      Drop = input.Drop,
+      Scroll = input.Scroll,
+      Aim = input.Aim,
+      MouseX = input.MouseX,
+      MouseY = input.MouseY
     };
   }
 
   public override void ResetInputs()
   {
-    horizontalInput = 0;
-    verticalInput = 0;
-    actionInput = 0;
-    interact = 0;
-    drop = 0;
-    scroll = 0;
-    aim = 0;
+    inputState = default;
   }
 
-  private void HandleMiscInputs()
+  private void EnsureInputRouter()
   {
-    if (!TryGetPart(out CharacterController controller))
+    if (inputRouter != null)
     {
+      inputRouter.Initialize();
       return;
     }
 
-    controller.MoveToward(Utilities.GetDirectionFromInput(horizontalInput, verticalInput));
-    if (interact != 0)
+    inputRouter = GetComponent<PlayerInputRouter>();
+    if (inputRouter == null)
     {
-      controller.InteractWith();
+      inputRouter = gameObject.AddComponent<PlayerInputRouter>();
     }
+
+    inputRouter.Initialize();
   }
 
   void Start()
   {
-    gunInputHandler = new GunInputHandler(this);
-    itemsInputHandler = new ItemsInputHandler(this);
+    EnsureInputRouter();
   }
 
   void Update()
   {
-    HandleMiscInputs();
-
-    gunInputHandler.Update();
-    itemsInputHandler.Update();
+    EnsureInputRouter();
+    inputRouter.Route(inputState);
   }
 }

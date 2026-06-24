@@ -4,11 +4,6 @@ using UnityEngine;
 
 public class Pistol : SemiAuto
 {
-    void Awake()
-    {
-        this.distanceDamageFactor = 0.2f;
-        this.baseDamage = 25;
-    }
     // Start is called before the first frame update
     void Start()
     {
